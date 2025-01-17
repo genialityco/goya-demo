@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
-import { initCamera } from "./Camera";
-import { initPoseLandmarker } from "./PoseLandmarker";
+import { initCamera } from "../services/Camera";
+import { initPoseLandmarker } from "../services/PoseLandmarker";
 import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
 
 /**

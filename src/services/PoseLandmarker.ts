@@ -19,16 +19,15 @@ export async function initPoseLandmarker(
   });
 
   let isRunning = true;
-
   const detectPose = async () => {
-    if (!isRunning) return;
-
-    const result = await poseLandmarker.detectForVideo(video, performance.now());
-
+    if (!isRunning || video.readyState < 2) return;
+    const result = await poseLandmarker.detectForVideo(
+      video,
+      performance.now()
+    );
     if (result?.landmarks?.length) {
-      onResults(result.landmarks[0]); // Enviar las landmarks detectadas
+      onResults(result.landmarks[0]);
     }
-
     requestAnimationFrame(detectPose);
   };
 

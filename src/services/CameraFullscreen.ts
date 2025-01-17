@@ -30,14 +30,14 @@ export async function initCameraFullscreen(): Promise<HTMLVideoElement> {
     }
   
     try {
-      // Configuración para capturar la cámara
       const constraints = {
         video: {
           facingMode: "user",
-          width: { ideal: 1280 },
-          height: { ideal: 720 },
+          width: { ideal: screenWidth / 2 }, 
+          height: { ideal: screenHeight / 2 },
         },
       };
+      
   
       // Capturar el stream de la cámara
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
