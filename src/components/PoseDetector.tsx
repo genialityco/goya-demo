@@ -63,7 +63,7 @@ const BoneInspector = () => {
       const boneInitVecs: Record<string, THREE.Vector3> = {};
 
       model.traverse((child) => {
-        if (child.isBone) {
+        // if (child.isBone) {
           const bone = child as THREE.Bone;
           boneNames.push(bone.name);
 
@@ -76,7 +76,7 @@ const BoneInspector = () => {
           localDir.normalize(); // Lo normalizamos para tener un vector unitario
 
           boneInitVecs[bone.name] = localDir.clone();
-        }
+        // }
       });
 
       setBones(boneNames); 

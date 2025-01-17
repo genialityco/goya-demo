@@ -12,19 +12,19 @@ import {
   addDoc,
 } from "firebase/firestore";
 import { db } from "../firebase";
-import { initCameraFullscreen } from "./CameraFullscreen";
+// import { initCameraFullscreen } from "./CameraFullscreen";
 import { initCamera } from "./Camera";
 
 const BallInteractionGame = () => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
-  const videoRef = useRef<HTMLVideoElement | null>(null);
+  // const videoRef = useRef<HTMLVideoElement | null>(null);
   const ballsRef = useRef<any[]>([]); // Pelotas locales
   const landmarksRef = useRef<any[]>([]); // Landmarks locales
   const pendingUpdatesRef = useRef<number[]>([]); // Pelotas a sincronizar
-  const [balls, setBalls] = useState<any[]>([]);
+  const [, setBalls] = useState<any[]>([]);
   const [players, setPlayers] = useState<any[]>([]);
-  const [nickname, setNickname] = useState<string | null>(null);
+  const [, setNickname] = useState<string | null>(null);
   const [playerId, setPlayerId] = useState<string | null>(null);
   const [gameReady, setGameReady] = useState(false); // Verifica si hay suficientes jugadores
   const gameId = "multiplayer-room";
