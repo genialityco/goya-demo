@@ -8,6 +8,7 @@ import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader.js";
  * Interfaz opcional para mayor claridad en TypeScript
  */
 interface Landmark {
+  visibility: number;
   x: number;
   y: number;
   z: number;
@@ -18,6 +19,61 @@ const PoseDetector = () => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const threeCanvasRef = useRef<HTMLDivElement | null>(null);
   const modelRef = useRef<THREE.Object3D | null>(null);
+
+  // Referencias para escena, cámara y renderer
+  const sceneRef = useRef<THREE.Scene | null>(null);
+  const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
+  const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
+
+  /**
+   * Función para configurar la escena y el renderer
+   */
+  const setupScene = () => {
+    if (!sceneRef.current) {
+      const scene = new THREE.Scene();
+      sceneRef.current = scene;
+
+      const camera = new THREE.PerspectiveCamera(
+        75,
+        window.innerWidth / window.innerHeight,
+        0.1,
+        1000
+      );
+      camera.position.z = 5;
+      cameraRef.current = camera;
+
+      const renderer = new THREE.WebGLRenderer({ alpha: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      rendererRef.current = renderer;
+
+      if (threeCanvasRef.current) {
+        threeCanvasRef.current.appendChild(renderer.domElement);
+      }
+
+      const light = new THREE.DirectionalLight(0xffffff, 1);
+      light.position.set(5, 5, 5);
+      scene.add(light);
+
+      const axesHelper = new THREE.AxesHelper(1);
+      scene.add(axesHelper);
+    }
+  };
+
+  /**
+   * Cargar modelo GLTF en la escena.
+   */
+  const loadModel = () => {
+    if (!sceneRef.current || modelRef.current) return;
+
+    const loader = new GLTFLoader();
+    loader.load("/models/XBot.glb", (gltf) => {
+      const model = gltf.scene;
+      model.scale.set(2, 2, 2);
+      model.position.set(0, -2, 0);
+      sceneRef.current?.add(model);
+      modelRef.current = model;
+    });
+  };
 
   /**
    * Función para dibujar landmarks en el canvas.
@@ -64,110 +120,157 @@ const PoseDetector = () => {
     // Crear vectores 3D a partir de las landmarks
     const startVec = new THREE.Vector3(start.x, start.y, start.z);
     const endVec = new THREE.Vector3(end.x, end.y, end.z);
-  
+
     const direction = new THREE.Vector3()
       .subVectors(endVec, startVec)
       .normalize();
-  
+
     // Calcular el quaternion que rota initialVec hacia la dirección calculada
     const quaternion = new THREE.Quaternion().setFromUnitVectors(
-      initialVec,
-      direction
-    ).invert(); 
-  
+      initialVec.normalize(),
+      direction.normalize()
+    );
+    // .invert();
+
     return quaternion;
   };
-  
 
   /**
    * Sincroniza la pose de la persona con la del modelo 3D.
    */
-  const syncModeloCompleto = (
-    landmarks: Landmark[],
-    model: THREE.Object3D,
-    initialVecManual?: THREE.Vector3
-  ) => {
+  /**
+   * Sincroniza la pose de la persona con la del modelo 3D.
+   * Si faltan landmarks, forzar brazos abajo.
+   */
+  const syncModeloCompleto = (landmarks: Landmark[], model: THREE.Object3D) => {
     if (!landmarks || landmarks.length === 0) return;
-  
-    // Reflejar landmarks para trabajar en modo espejo
-    const mirroredLandmarks = landmarks.map((landmark) => ({
-      x: 1 - landmark.x, // Reflejar el eje X
-      y: landmark.y,
-      z: 1 - landmark.z, // Reflejar el eje Z
-    }));
-  
-    // Landmarks clave
+
+    // Reflejar landmarks para trabajar en modo espejo (si aplica)
+    const mirroredLandmarks = landmarks;
+
+    // Landmarks clave para brazo izquierdo
+    const hombroIzquierdoLandmark = mirroredLandmarks[12];
+    const codoIzquierdoLandmark = mirroredLandmarks[14];
+    const manoIzquierdaLandmark = mirroredLandmarks[16];
+
+    // Landmarks clave para brazo derecho
+    const hombroDerechoLandmark = mirroredLandmarks[11];
     const codoDerechoLandmark = mirroredLandmarks[13];
     const manoDerechaLandmark = mirroredLandmarks[15];
-  
-    if (!codoDerechoLandmark || !manoDerechaLandmark) {
-      console.warn("Landmarks necesarios para el antebrazo derecho no están disponibles.");
-      return;
-    }
-  
-    // Obtener hueso del antebrazo derecho del modelo
+
+    // Obtener huesos del brazo izquierdo
+    const brazoI = model.getObjectByName("mixamorigLeftArm");
+    const antebrazoI = model.getObjectByName("mixamorigLeftForeArm");
+
+    // Obtener huesos del brazo derecho
+    const brazoD = model.getObjectByName("mixamorigRightArm");
     const antebrazoD = model.getObjectByName("mixamorigRightForeArm");
-    if (!antebrazoD) {
-      console.warn("El hueso 'mixamorigRightForeArm' no fue encontrado en el modelo.");
-      return;
-    }
-  
-    // Usar vector inicial del modelo o el proporcionado manualmente
-    const initialVec = initialVecManual
-      ? initialVecManual.normalize()
-      : new THREE.Vector3().copy(antebrazoD.position).normalize();
-  
-    // Calcular rotación para el antebrazo derecho
-    const rotationAntebrazoD = calculateQuaternion(
-      codoDerechoLandmark,
-      manoDerechaLandmark,
-      initialVec
+
+    // Rotación por defecto (brazos abajo). Ajusta estos valores según tu rig:
+    // Si la T-Pose tiene los brazos estirados hacia los lados (+X o -X),
+    // girar -90° en Z (o en X) los hace "caer" hacia abajo.
+    const brazoAbajoEulerIzq = new THREE.Euler(1.2, 0, 0);
+    const brazoAbajoEulerDer = new THREE.Euler(1.2, 0, 0);
+    const brazoAbajoQuatIzq = new THREE.Quaternion().setFromEuler(
+      brazoAbajoEulerIzq
     );
-  
-    // Aplicar rotación al antebrazo derecho
-    antebrazoD.quaternion.copy(rotationAntebrazoD);
+    const brazoAbajoQuatDer = new THREE.Quaternion().setFromEuler(
+      brazoAbajoEulerDer
+    );
+
+    // (Opcional) El antebrazo quizás quieras dejarlo en 0,0,0
+    // o con un leve doblez. Aquí lo dejamos "recto".
+    const antebrazoAbajoQuat = new THREE.Quaternion().identity();
+
+    // Crear un pequeño offset de 40° en X
+    const mySmallOffsetQuaternion = new THREE.Quaternion().setFromEuler(
+      new THREE.Euler(
+        THREE.MathUtils.degToRad(-40), // 15° en X
+        0, // 0° en Y
+        0 // 0° en Z
+      )
+    );
+
+    // ----- BRAZO IZQUIERDO -----
+    if (brazoI && antebrazoI) {
+      // Verificar si los landmarks del codo y mano existen
+      if (
+        codoIzquierdoLandmark &&
+        codoIzquierdoLandmark.visibility > 0.5 &&
+        manoIzquierdaLandmark &&
+        manoIzquierdaLandmark.visibility > 0.5
+      ) {
+        // Calcular rotación para el brazo izquierdo
+        const rotationBrazoI = calculateQuaternion(
+          hombroIzquierdoLandmark,
+          codoIzquierdoLandmark,
+          new THREE.Vector3(-1, 0, 0)
+        );
+
+        // Aplica el offset
+        rotationBrazoI.multiply(mySmallOffsetQuaternion);
+
+        // Asigna la rotación resultante
+        brazoI.quaternion.copy(rotationBrazoI);
+
+        // Calcular rotación para el antebrazo izquierdo
+        const rotationAntebrazoI = calculateQuaternion(
+          codoIzquierdoLandmark,
+          manoIzquierdaLandmark,
+          new THREE.Vector3(-1, 0, 0)
+        );
+
+        antebrazoI.quaternion.copy(rotationAntebrazoI);
+      } else {
+        // Si faltan codo o mano => brazo "abajo"
+        brazoI.quaternion.copy(brazoAbajoQuatIzq);
+        antebrazoI.quaternion.copy(antebrazoAbajoQuat);
+      }
+    }
+
+    // ----- BRAZO DERECHO -----
+    if (brazoD && antebrazoD) {
+      // Verificar si los landmarks del codo y mano existen
+      if (
+        codoDerechoLandmark &&
+        codoDerechoLandmark.visibility > 0.5 &&
+        manoDerechaLandmark &&
+        manoDerechaLandmark.visibility > 0.5
+      ) {
+        // Calcular rotación para el brazo derecho
+        const rotationBrazoD = calculateQuaternion(
+          hombroDerechoLandmark,
+          codoDerechoLandmark,
+          new THREE.Vector3(0.98, -0.21, 0)
+        );
+
+        rotationBrazoD.multiply(mySmallOffsetQuaternion);
+
+        brazoD.quaternion.copy(rotationBrazoD);
+
+        // Calcular rotación para el antebrazo derecho
+        const rotationAntebrazoD = calculateQuaternion(
+          codoDerechoLandmark,
+          manoDerechaLandmark,
+          new THREE.Vector3(1, 0, 0)
+        );
+        antebrazoD.quaternion.copy(rotationAntebrazoD);
+      } else {
+        // Si faltan codo o mano => brazo "abajo"
+        brazoD.quaternion.copy(brazoAbajoQuatDer);
+        antebrazoD.quaternion.copy(antebrazoAbajoQuat);
+      }
+    }
   };
-  
-  
-  
-  
+
   useEffect(() => {
-    // 1. Crear escena, cámara y renderer
-    const scene = new THREE.Scene();
-    const camera = new THREE.PerspectiveCamera(
-      75,
-      window.innerWidth / window.innerHeight,
-      0.1,
-      1000
-    );
-    camera.position.z = 5;
+    // Configurar escena y renderer
+    setupScene();
 
-    const renderer = new THREE.WebGLRenderer({ alpha: true });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    if (threeCanvasRef.current) {
-      threeCanvasRef.current.appendChild(renderer.domElement);
-    }
+    // Cargar modelo
+    loadModel();
 
-    const light = new THREE.DirectionalLight(0xffffff, 1);
-    light.position.set(5, 5, 5);
-    scene.add(light);
-
-    // 3. Agregar ejes para depuración
-    const axesHelper = new THREE.AxesHelper(1);
-    scene.add(axesHelper);
-
-    // 4. Cargar modelo GLTF
-    const loader = new GLTFLoader();
-    loader.load("/models/XBot.glb", (gltf) => {
-      const model = gltf.scene;
-      console.log(model);
-      model.scale.set(2, 2, 2);
-      model.position.set(0, -2, 0);
-      scene.add(model);
-      modelRef.current = model;
-    });
-
-    // 5. Iniciar cámara y Pose Landmarker
+    // Iniciar cámara y Pose Landmarker
     let landmarkerCleanup: null | (() => void) = null;
 
     const setupPoseLandmarker = async () => {
@@ -180,39 +283,43 @@ const PoseDetector = () => {
       const ctx = canvas.getContext("2d")!;
 
       landmarkerCleanup = await initPoseLandmarker(video, (landmarks) => {
-        // Dibuja landmarks espejados en el canvas
+        // Dibuja landmarks en el canvas
         drawLandmarks(ctx, canvas, video, landmarks);
-      
+
         // Sincroniza pose con el modelo usando landmarks originales
         if (modelRef.current) {
-          syncModeloCompleto(landmarks, modelRef.current, new THREE.Vector3(1, 0, 0));
+          syncModeloCompleto(landmarks, modelRef.current);
         }
-      });      
+      });
     };
 
     setupPoseLandmarker().catch(console.error);
 
-    // 6. Función de animación
+    // Animar escena
     const animate = () => {
       requestAnimationFrame(animate);
-      renderer.render(scene, camera);
+      if (sceneRef.current && cameraRef.current && rendererRef.current) {
+        rendererRef.current.render(sceneRef.current, cameraRef.current);
+      }
     };
     animate();
 
-    // 7. Manejar resize de la ventana
+    // Manejar resize de la ventana
     const handleResize = () => {
-      camera.aspect = window.innerWidth / window.innerHeight;
-      camera.updateProjectionMatrix();
-      renderer.setSize(window.innerWidth, window.innerHeight);
+      if (cameraRef.current && rendererRef.current) {
+        cameraRef.current.aspect = window.innerWidth / window.innerHeight;
+        cameraRef.current.updateProjectionMatrix();
+        rendererRef.current.setSize(window.innerWidth, window.innerHeight);
+      }
     };
     window.addEventListener("resize", handleResize);
 
-    // 8. Cleanup
+    // Cleanup
     return () => {
       if (landmarkerCleanup) {
-        landmarkerCleanup(); // Limpia listeners de la librería de pose
+        landmarkerCleanup();
       }
-      renderer.dispose(); // Libera el contexto WebGL
+      rendererRef.current?.dispose();
       window.removeEventListener("resize", handleResize);
     };
   }, []);
