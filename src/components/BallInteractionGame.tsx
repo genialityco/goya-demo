@@ -24,7 +24,6 @@ const BallInteractionGame = () => {
   const pendingUpdatesRef = useRef<number[]>([]); // Pelotas a sincronizar
   const [, setBalls] = useState<any[]>([]);
   const [players, setPlayers] = useState<any[]>([]);
-  const [, setNickname] = useState<string | null>(null);
   const [playerId, setPlayerId] = useState<string | null>(null);
   const [gameReady, setGameReady] = useState(false); // Verifica si hay suficientes jugadores
   const gameId = "multiplayer-room";
@@ -80,38 +79,50 @@ const BallInteractionGame = () => {
 
   const setupFirestore = async (width: number, height: number) => {
     const gameRef = doc(db, "games", gameId);
-
+    const playersRef = collection(db, "games", gameId, "players");
+  
+    // Escuchar cambios en el documento principal (pelotas)
     const gameSnapshot = await getDoc(gameRef);
     if (!gameSnapshot.exists()) {
       const initialBalls = generateBalls(10, width, height);
+      await setDoc(gameRef, { balls: initialBalls });
       ballsRef.current = initialBalls;
-      await setDoc(gameRef, { balls: initialBalls, players: [] });
       setBalls(initialBalls);
     } else {
       onSnapshot(gameRef, (snapshot) => {
         const data = snapshot.data();
-        if (data) {
-          console.log(data);
+        if (data?.balls) {
           ballsRef.current = data.balls;
           setBalls(data.balls);
-          setPlayers(data.players || []);
-          setGameReady((data.players || []).length >= 2);
         }
       });
     }
+  
+    // Escuchar cambios en la subcolección `players`
+    onSnapshot(playersRef, (snapshot) => {
+      const playersData = snapshot.docs.map((doc) => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+
+      console.log(playersData);
+      setPlayers(playersData);
+      setGameReady(playersData.length >= 2);
+    });
   };
 
   const joinGame = async () => {
     const nicknameInput =
       prompt("Enter your nickname") ||
       `Player-${Math.floor(Math.random() * 1000)}`;
-    setNickname(nicknameInput);
-
-    const playerRef = collection(db, "games", gameId, "players");
-    const playerDoc = await addDoc(playerRef, {
+  
+    const playersRef = collection(db, "games", gameId, "players");
+  
+    const playerDoc = await addDoc(playersRef, {
       nickname: nicknameInput,
       score: 0,
     });
+  
     setPlayerId(playerDoc.id);
   };
 
