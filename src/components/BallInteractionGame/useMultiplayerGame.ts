@@ -2,7 +2,16 @@
 /* eslint-disable react-hooks/exhaustive-deps */
 import { useEffect, useRef, useState } from "react";
 import { db } from "../../services/firebase"; // Ajusta la ruta a tu archivo de config
-import { ref, onValue, update, set, off, runTransaction, get, onDisconnect } from "firebase/database";
+import {
+  ref,
+  onValue,
+  update,
+  set,
+  off,
+  runTransaction,
+  get,
+  onDisconnect,
+} from "firebase/database";
 import { initPoseLandmarker } from "../../services/PoseLandmarker";
 import { initCamera } from "../../services/Camera";
 
@@ -50,7 +59,7 @@ export function useMultiplayerGame() {
       }
     });
 
-    // Suscribirse a la sala (isStarted, players, balls)
+    // 2) Suscribirse a la sala (isStarted, players, balls)
     const roomRef = ref(db, `rooms/${ROOM_ID}`);
     onValue(roomRef, (snapshot) => {
       const roomData = snapshot.val();
@@ -60,7 +69,7 @@ export function useMultiplayerGame() {
       setBalls(roomData.balls || {});
     });
 
-    // Precarga del modelo
+    // 3) Precarga del modelo
     preloadModel();
 
     return () => {
@@ -80,31 +89,30 @@ export function useMultiplayerGame() {
     const playerPath = `rooms/${ROOM_ID}/players/${localPlayerId}`;
     const playerRef = ref(db, playerPath);
 
-    // Escribimos al jugador con un score inicial y nombre
+    // 1) Creamos o actualizamos el jugador con un score inicial
     await set(playerRef, {
       name: `Player-${localPlayerId.slice(0, 5)}`,
       score: 0,
     });
 
-    // Programamos la eliminación automática si este usuario se desconecta
+    // 2) Eliminamos al jugador en caso de desconexión
     onDisconnect(playerRef).remove();
 
-    // (Opcional) Inicializar las bolas una sola vez
+    // 3) Si no existen pelotas aún, crearlas
     const roomRef = ref(db, `rooms/${ROOM_ID}`);
-    onValue(roomRef, (snapshot) => {
-      const data = snapshot.val();
-      if (!data?.balls) {
-        const initialBalls = generateBalls(10, window.innerWidth, window.innerHeight);
-        const ballsObject: any = {};
-        initialBalls.forEach((b) => {
-          ballsObject[b.id] = b;
-        });
-        update(ref(db, `rooms/${ROOM_ID}`), {
-          balls: ballsObject,
-          isStarted: false,
-        });
-      }
-    }, { onlyOnce: true });
+    const snapshot = await get(roomRef);
+    const data = snapshot.val();
+    if (!data?.balls) {
+      const initialBalls = generateBalls(10);
+      const ballsObject: Record<string, any> = {};
+      initialBalls.forEach((b) => {
+        ballsObject[b.id] = b;
+      });
+      await update(roomRef, {
+        balls: ballsObject,
+        isStarted: false,
+      });
+    }
   }
 
   /**
@@ -113,7 +121,10 @@ export function useMultiplayerGame() {
   async function preloadModel() {
     try {
       const dummyVideo = document.createElement("video");
-      poseLandmarkerCleanupRef.current = await initPoseLandmarker(dummyVideo, () => {});
+      poseLandmarkerCleanupRef.current = await initPoseLandmarker(
+        dummyVideo,
+        () => {}
+      );
       setIsPreloading(false);
     } catch (error) {
       console.error("Error precargando el modelo:", error);
@@ -151,8 +162,9 @@ export function useMultiplayerGame() {
     }
 
     // Iniciar poseLandmarker real
-    poseLandmarkerCleanupRef.current = await initPoseLandmarker(video, (allLandmarks) =>
-      handlePoseResults(allLandmarks, canvas)
+    poseLandmarkerCleanupRef.current = await initPoseLandmarker(
+      video,
+      (allLandmarks) => handlePoseResults(allLandmarks, canvas)
     );
 
     // Iniciar el bucle de dibujo
@@ -180,8 +192,8 @@ export function useMultiplayerGame() {
         playersData[playerId].score = 0;
       });
 
-      // 3) Generar nuevas pelotas
-      const newBalls = generateBalls(10, window.innerWidth, window.innerHeight);
+      // 3) Generar nuevas pelotas (coordenadas normalizadas)
+      const newBalls = generateBalls(10);
       const newBallsObj: Record<string, any> = {};
       newBalls.forEach((b) => {
         newBallsObj[b.id] = b;
@@ -214,28 +226,40 @@ export function useMultiplayerGame() {
   }
 
   /**
-   * Verifica colisiones de las manos con las pelotas
+   * Verifica colisiones de la mano con las pelotas y actualiza DB
    */
   function checkInteractions(handLandmarks: any[], canvas: HTMLCanvasElement) {
-    // 1. Copiamos las pelotas del estado a un objeto mutable
+    // Clonar pelotas locales para mutarlas
     const currentBalls = { ...balls };
-  
-    handLandmarks.forEach((landmark) => {
+
+    handLandmarks.forEach((lm) => {
+      // Convertir landmark normalizado (0..1)
+      // a coordenadas de píxeles en este canvas
+      const handX = lm.x * canvas.width;
+      const handY = lm.y * canvas.height;
+
       Object.values(currentBalls).forEach((ball: any) => {
         if (!ball.active) return;
-  
-        const dx = (1 - landmark.x) * canvas.width - ball.x;
-        const dy = landmark.y * canvas.height - ball.y;
-        const distanceSquared = dx * dx + dy * dy;
-  
-        if (distanceSquared < ball.radius * ball.radius) {
-          // A) Desactivamos la pelota localmente (para no seguir contando colisiones)
+
+        // Convertir la posición normalizada de la pelota a píxeles
+        const ballX = ball.x * canvas.width;
+        const ballY = ball.y * canvas.height;
+        const radius = ball.radius * canvas.width; // ej.: relativo al ancho
+
+        // Calcular la distancia
+        const dx = handX - ballX;
+        const dy = handY - ballY;
+        const distSq = dx * dx + dy * dy;
+
+        // Comparar contra radio^2
+        if (distSq < radius * radius) {
+          // Pelota golpeada: desactivar
           ball.active = false;
-  
-          // B) Mandamos la actualización a Firebase
-          update(ref(db, `rooms/${ROOM_ID}/balls/${ball.id}`), { active: false });
-  
-          // C) Incremento atómico del score
+          // Actualizar en Firebase
+          update(ref(db, `rooms/${ROOM_ID}/balls/${ball.id}`), {
+            active: false,
+          });
+          // Incrementar puntuación atómicamente
           runTransaction(
             ref(db, `rooms/${ROOM_ID}/players/${localPlayerId}/score`),
             (currentScore) => (currentScore || 0) + 1
@@ -245,11 +269,11 @@ export function useMultiplayerGame() {
         }
       });
     });
-  
-    // 2. ACTUALIZAMOS *INMEDIATAMENTE* EL ESTADO LOCAL:
-    setBalls(currentBalls); 
+
+    // Actualizar estado local inmediatamente
+    setBalls(currentBalls);
   }
-  
+
   /**
    * Dibuja cada frame
    */
@@ -268,24 +292,26 @@ export function useMultiplayerGame() {
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
     ctx.restore();
 
-    // Landmarks
-    if (landmarks) drawLandmarks(ctx, canvas, landmarks);
-
+    // Dibujar landmarks
+    if (landmarks?.length) {
+      drawLandmarks(ctx, canvas, landmarks);
+    }
     // Pelotas
     drawBalls(ctx, latestBallsRef.current);
   }
 
   /**
-   * Dibuja los landmarks
+   * Dibuja los landmarks (marcas) en el canvas
    */
   function drawLandmarks(
     ctx: CanvasRenderingContext2D,
     canvas: HTMLCanvasElement,
     landmarks: any[]
   ) {
-    landmarks.forEach((landmark) => {
-      const x = (1 - landmark.x) * canvas.width;
-      const y = landmark.y * canvas.height;
+    landmarks.forEach((lm) => {
+      // lm.x, lm.y están normalizados [0..1]
+      const x = lm.x * canvas.width;
+      const y = lm.y * canvas.height;
 
       ctx.beginPath();
       ctx.arc(x, y, 5, 0, 2 * Math.PI);
@@ -295,28 +321,32 @@ export function useMultiplayerGame() {
   }
 
   /**
-   * Dibuja las pelotas activas
+   * Dibuja las pelotas (ya en pixeles)
    */
   function drawBalls(ctx: CanvasRenderingContext2D, ballsObj: any) {
     Object.values(ballsObj).forEach((ball: any) => {
       if (!ball.active) return;
+
+      const x = ball.x * ctx.canvas.width;
+      const y = ball.y * ctx.canvas.height;
+      const radius = ball.radius * ctx.canvas.width;
+
       ctx.beginPath();
-      ctx.arc(ball.x, ball.y, ball.radius, 0, 2 * Math.PI);
+      ctx.arc(x, y, radius, 0, 2 * Math.PI);
       ctx.fillStyle = "blue";
       ctx.fill();
     });
   }
 
   /**
-   * Genera pelotas en memoria
+   * Genera un conjunto de pelotas con coordenadas normalizadas
    */
-  function generateBalls(count: number, width: number, height: number) {
-    const padding = 50;
+  function generateBalls(count: number) {
     return Array.from({ length: count }).map((_, i) => ({
       id: i,
-      x: Math.random() * (width - 2 * padding) + padding,
-      y: Math.random() * (height - 2 * padding) + padding,
-      radius: 25,
+      x: Math.random(), // Normalizado [0..1]
+      y: Math.random(), // Normalizado [0..1]
+      radius: 0.04, // ~4% del ancho (puedes ajustar)
       active: true,
     }));
   }
@@ -331,7 +361,7 @@ export function useMultiplayerGame() {
     canvasRef,
     // Métodos
     startGame,
-    restartGame
+    restartGame,
   };
 }
 
