@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable react-hooks/exhaustive-deps */
 import { useEffect, useRef, useState } from "react";
-import { db } from "../../services/firebase"; // Ajusta la ruta a tu archivo de config
+import { db } from "../../services/firebase"; // Ajusta la ruta
 import {
   ref,
   onValue,
@@ -18,53 +18,53 @@ import { initCamera } from "../../services/Camera";
 const ROOM_ID = "miSala";
 
 export function useMultiplayerGame() {
+  // -----------------------
   // Estados principales
-  const [isPreloading, setIsPreloading] = useState(true);
-  const [isStarted, setIsStarted] = useState(false);
+  // -----------------------
+  const [isPreloading, setIsPreloading] = useState(true); // Preload del modelo
+  const [isStarted, setIsStarted] = useState(false);      // Flag: partida iniciada
   const [players, setPlayers] = useState<{ [key: string]: any }>({});
   const [balls, setBalls] = useState<{ [key: string]: any }>({});
-
-  // Guardamos en un ref la referencia más reciente de las pelotas
   const latestBallsRef = useRef<{ [key: string]: any }>({});
 
   // Identificador único de jugador
   const [localPlayerId] = useState(() => generatePlayerId());
 
-  // Referencias para Canvas y Pose
+  // -----------------------
+  // Canvas y modelo
+  // -----------------------
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
+
+  // Donde guardamos los landmarks más recientes
   const landmarksRef = useRef<any[]>([]);
 
   // Cleanup del modelo si hace falta
   const poseLandmarkerCleanupRef = useRef<null | (() => void)>(null);
 
-  // Para evitar reiniciar la cámara múltiples veces en el mismo cliente
+  // Para no reiniciar cámara dos veces
   const [cameraReady, setCameraReady] = useState(false);
 
-  // Sincroniza la ref de pelotas con su último valor de estado
+  // Sincronizar ref con estado de balls
   useEffect(() => {
     latestBallsRef.current = balls;
   }, [balls]);
 
-  /**
-   * Efecto principal:
-   * - Registrar jugador en la sala
-   * - Suscribirse a la sala (para leer isStarted, players, balls)
-   * - Precargar modelo de pose
-   * - Mantener onDisconnect
-   */
+  // -----------------------
+  // useEffect principal
+  // -----------------------
   useEffect(() => {
-    // 1) Escuchar el .info/connected para saber si estamos en línea
+    // 1) Verificar si estamos conectados (online)
     const connectedRef = ref(db, ".info/connected");
     onValue(connectedRef, async (snap) => {
-      const isOnline = snap.val();
-      if (isOnline) {
+      if (snap.val()) {
+        // Si está en línea, registrar jugador
         await registerPlayerInRoom();
       }
     });
 
-    // 2) Suscribirse a la sala (isStarted, players, balls)
+    // 2) Suscribirse a cambios en la sala (isStarted, players, balls)
     const roomRef = ref(db, `rooms/${ROOM_ID}`);
     onValue(roomRef, (snapshot) => {
       const roomData = snapshot.val();
@@ -74,10 +74,10 @@ export function useMultiplayerGame() {
       setBalls(roomData.balls || {});
     });
 
-    // 3) Precarga del modelo
+    // 3) Precarga del modelo de pose (dummy video)
     preloadModel();
 
-    // Cleanup
+    // Limpieza al desmontar
     return () => {
       off(connectedRef);
       off(roomRef);
@@ -88,20 +88,18 @@ export function useMultiplayerGame() {
   }, []);
 
   /**
-   * Cuando `isStarted` pasa a true, todos los clientes deben iniciar
-   * su cámara, pose y bucle de render, si no lo han hecho ya.
+   * Cuando detectamos que `isStarted` es true y ya no estamos precargando,
+   * cada cliente inicia localmente su cámara y loop (si no lo ha hecho).
    */
   useEffect(() => {
-    // Sólo inicializar si isStarted=true, ya se precargó el modelo y
-    // este cliente aún no ha inicializado su cámara (cameraReady=false).
     if (isStarted && !isPreloading && !cameraReady) {
-      startLocalGame(); // inicia cámara y loop
+      startLocalGame(); // Arranca cámara y render en este cliente
     }
   }, [isStarted, isPreloading, cameraReady]);
 
-  /**
-   * Registra un jugador en la sala, y crea pelotas si no existen
-   */
+  // -----------------------
+  // Registro en la sala
+  // -----------------------
   async function registerPlayerInRoom() {
     const playerPath = `rooms/${ROOM_ID}/players/${localPlayerId}`;
     const playerRef = ref(db, playerPath);
@@ -112,10 +110,10 @@ export function useMultiplayerGame() {
       score: 0,
     });
 
-    // 2) Al desconectarse, se elimina
+    // 2) Eliminar al jugador en caso de desconexión
     onDisconnect(playerRef).remove();
 
-    // 3) Si no existen pelotas, crearlas
+    // 3) Crear pelotas si no existen
     const roomRef = ref(db, `rooms/${ROOM_ID}`);
     const snapshot = await get(roomRef);
     const data = snapshot.val();
@@ -132,9 +130,9 @@ export function useMultiplayerGame() {
     }
   }
 
-  /**
-   * Precarga del modelo de pose con un video "dummy"
-   */
+  // -----------------------
+  // Precarga del modelo (dummy)
+  // -----------------------
   async function preloadModel() {
     try {
       const dummyVideo = document.createElement("video");
@@ -149,49 +147,44 @@ export function useMultiplayerGame() {
     }
   }
 
-  /**
-   * (1) El usuario que da clic en "Start Game" avisa a Firebase
-   *     que la sala está iniciada (isStarted = true).
-   * (2) Todos los clientes (incluyendo el que clicó) lo capturan en
-   *     el useEffect y llaman a startLocalGame() (si no está ya corriendo).
-   */
+  // -----------------------
+  // Start Game (para Firebase)
+  // -----------------------
   async function startGame() {
+    // Solo el usuario que da clic: avisa a Firebase "la sala está iniciada"
     if (isPreloading || isStarted) return;
-    // Actualizar isStarted en Firebase
     update(ref(db, `rooms/${ROOM_ID}`), { isStarted: true });
   }
 
-  /**
-   * Esta función inicia la cámara y el bucle de render local
-   * en *este* cliente. La llamamos cuando vemos isStarted=true.
-   */
+  // -----------------------
+  // startLocalGame (cámara y bucle)
+  // -----------------------
   async function startLocalGame() {
     try {
-      // Marcar que ya no volvamos a iniciar
       setCameraReady(true);
 
-      // Iniciar la cámara
+      // Iniciar cámara
       const video = await initCamera();
       videoRef.current = video;
 
-      // Configurar el canvas
+      // Configurar canvas
       const canvas = canvasRef.current!;
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
       const ctx = canvas.getContext("2d")!;
       ctxRef.current = ctx;
 
-      // Limpiar el modelo dummy, si estaba activo
+      // Limpiar el modelo dummy si estaba activo
       if (poseLandmarkerCleanupRef.current) {
         poseLandmarkerCleanupRef.current();
       }
 
-      // Iniciar poseLandmarker real
+      // Iniciar landmarker con la cámara real
       poseLandmarkerCleanupRef.current = await initPoseLandmarker(video, (
         allLandmarks
       ) => handlePoseResults(allLandmarks, canvas));
 
-      // Iniciar bucle de dibujo local
+      // Bucle de dibujo
       const draw = () => {
         if (!ctxRef.current || !videoRef.current) return;
         drawFrame(ctxRef.current, videoRef.current, canvas, landmarksRef.current);
@@ -199,112 +192,115 @@ export function useMultiplayerGame() {
       };
       draw();
     } catch (error) {
-      console.error("Error iniciando cámara/modelo local:", error);
+      console.error("Error iniciando cámara/localGame:", error);
     }
   }
 
-  /**
-   * Reiniciar juego:
-   * - Resetea scores
-   * - Genera nuevas pelotas
-   * - isStarted = false (vuelven a ver la pantalla de inicio)
-   */
+  // -----------------------
+  // restartGame
+  // -----------------------
   async function restartGame() {
     try {
-      // 1) Obtener jugadores
+      // 1) Leer jugadores y poner score=0
       const playersSnap = await get(ref(db, `rooms/${ROOM_ID}/players`));
       const playersData = playersSnap.val() || {};
 
-      // 2) Scores en 0
       Object.keys(playersData).forEach((playerId) => {
         playersData[playerId].score = 0;
       });
 
-      // 3) Nuevas pelotas
+      // 2) Generar nuevas pelotas
       const newBalls = generateBalls(10);
       const newBallsObj: Record<string, any> = {};
       newBalls.forEach((b) => {
         newBallsObj[b.id] = b;
       });
 
-      // 4) Actualizar sala
+      // 3) Actualizar la sala => isStarted: false (pantalla inicial)
       await update(ref(db, `rooms/${ROOM_ID}`), {
         isStarted: false,
         players: playersData,
         balls: newBallsObj,
       });
 
-      // 5) Opcional: En cada cliente, podrías hacer un cleanup local
-      //    si quieres parar la cámara, etc. Ejemplo:
+      // 4) (Opcional) Parar la cámara local en este cliente, si quieres
       if (poseLandmarkerCleanupRef.current) {
         poseLandmarkerCleanupRef.current();
       }
       setCameraReady(false);
 
     } catch (error) {
-      console.error("Error reiniciando la partida:", error);
+      console.error("Error reiniciando partida:", error);
     }
   }
 
-  /**
-   * Procesa los resultados de la pose
-   */
+  // -----------------------
+  // Procesar resultados de Pose
+  // -----------------------
   function handlePoseResults(allLandmarks: any[], canvas: HTMLCanvasElement) {
-    // Landmarks de la mano (ajusta índices a tu conveniencia)
+    // Filtrar landmarks de mano (ajusta los índices si tu modelo difiere)
     const handLandmarks = allLandmarks.filter((_: any, index: number) =>
       [15, 16, 17, 18, 19, 20, 21, 22].includes(index)
     );
+
     landmarksRef.current = handLandmarks;
     checkInteractions(handLandmarks, canvas);
   }
 
-  /**
-   * Verifica colisiones mano-pelota y actualiza en Firebase
-   */
+  // -----------------------
+  // Colisiones mano - pelotas
+  // -----------------------
   function checkInteractions(handLandmarks: any[], canvas: HTMLCanvasElement) {
     const currentBalls = { ...balls };
 
     handLandmarks.forEach((lm) => {
-      // Landmark normalizado (0..1) => píxeles
-      const handX = lm.x * canvas.width;
+      // Opción A) SIN espejo en colisiones:
+      //   const handX = lm.x * canvas.width;
+      //   const handY = lm.y * canvas.height;
+      //
+      // Opción B) CON espejo en colisiones (si dibujaste espejo en video):
+      //   const handX = (1 - lm.x) * canvas.width;
+      //   const handY = lm.y * canvas.height;
+
+      const handX = (1 - lm.x) * canvas.width; // <--- Ajusta según necesites
       const handY = lm.y * canvas.height;
 
       Object.values(currentBalls).forEach((ball: any) => {
         if (!ball.active) return;
 
+        // Posición pelota (normalizada => pixeles)
         const ballX = ball.x * canvas.width;
         const ballY = ball.y * canvas.height;
-        const radius = ball.radius * canvas.width;
+        const radius = ball.radius * canvas.width; // radio
 
+        // Distancia
         const dx = handX - ballX;
         const dy = handY - ballY;
         const distSq = dx * dx + dy * dy;
 
+        // Si está dentro del radio, se "atrapa"
         if (distSq < radius * radius) {
-          // Desactivamos
           ball.active = false;
-          // Enviar a Firebase
+          // Actualizar en DB => desaparece para todos
           update(ref(db, `rooms/${ROOM_ID}/balls/${ball.id}`), {
             active: false,
           });
-          // Incrementar score atómicamente
+          // Sumar score atómicamente
           runTransaction(
             ref(db, `rooms/${ROOM_ID}/players/${localPlayerId}/score`),
             (currentScore) => (currentScore || 0) + 1
-          ).catch((error) => {
-            console.error("Error incrementando score:", error);
-          });
+          ).catch((err) => console.error("Error incrementando score:", err));
         }
       });
     });
 
-    // Actualizar estado local
+    // Actualizar estado local inmediatamente
     setBalls(currentBalls);
   }
 
-  /**
-   * Bucle de dibujo
-   */
+  // -----------------------
+  // Dibujo en cada frame
+  // -----------------------
   function drawFrame(
     ctx: CanvasRenderingContext2D,
     video: HTMLVideoElement,
@@ -313,24 +309,26 @@ export function useMultiplayerGame() {
   ) {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Efecto espejo
+    // Ejemplo de dibujar en espejo la cámara:
     ctx.save();
     ctx.scale(-1, 1);
     ctx.translate(-canvas.width, 0);
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
     ctx.restore();
 
-    // Landmarks
+    // Dibujar landmarks (ojo con el espejo):
     if (landmarks?.length) {
       drawLandmarks(ctx, canvas, landmarks);
     }
 
-    // Pelotas
+    // Dibujar pelotas
     drawBalls(ctx, latestBallsRef.current);
   }
 
   /**
-   * Dibuja landmarks
+   * Dibujar landmarks
+   * Si estás dibujando el video en espejo, y quieres que la mano
+   * coincida visualmente, podrías usar x = (1 - lm.x) en lugar de lm.x.
    */
   function drawLandmarks(
     ctx: CanvasRenderingContext2D,
@@ -338,8 +336,12 @@ export function useMultiplayerGame() {
     landmarks: any[]
   ) {
     landmarks.forEach((lm) => {
-      // Ajusta si necesitas espejo (ej: x => (1 - lm.x))
-      const x = lm.x * canvas.width;
+      // SIN espejo (x = lm.x):
+      // const x = lm.x * canvas.width;
+      // const y = lm.y * canvas.height;
+
+      // CON espejo (x = (1 - lm.x)):
+      const x = (1 - lm.x) * canvas.width;
       const y = lm.y * canvas.height;
 
       ctx.beginPath();
@@ -350,7 +352,7 @@ export function useMultiplayerGame() {
   }
 
   /**
-   * Dibuja pelotas
+   * Dibujar pelotas (normalizadas => pixeles)
    */
   function drawBalls(ctx: CanvasRenderingContext2D, ballsObj: any) {
     Object.values(ballsObj).forEach((ball: any) => {
@@ -367,15 +369,15 @@ export function useMultiplayerGame() {
     });
   }
 
-  /**
-   * Genera pelotas con coordenadas normalizadas
-   */
+  // -----------------------
+  // Generar pelotas normalizadas
+  // -----------------------
   function generateBalls(count: number) {
     return Array.from({ length: count }).map((_, i) => ({
       id: i,
       x: Math.random(),  // [0..1]
       y: Math.random(),
-      radius: 0.04,       // 4% del ancho (aprox.)
+      radius: 0.04,      // 4% del ancho (aprox.)
       active: true,
     }));
   }
@@ -387,16 +389,16 @@ export function useMultiplayerGame() {
     players,
     balls,
 
-    // Referencia para el canvas
+    // Referencia para el canvas (para el <canvas ref={canvasRef} />)
     canvasRef,
 
-    // Métodos
+    // Métodos públicos
     startGame,
     restartGame,
   };
 }
 
-/** Genera un ID aleatorio */
+/** Genera un ID de jugador aleatorio */
 function generatePlayerId() {
   return Math.random().toString(36).substr(2, 9);
 }
