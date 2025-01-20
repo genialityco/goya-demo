@@ -372,15 +372,23 @@ export function useMultiplayerGame() {
   // -----------------------
   // Generar pelotas normalizadas
   // -----------------------
-  function generateBalls(count: number) {
-    return Array.from({ length: count }).map((_, i) => ({
+function generateBalls(count: number) {
+  // Generará `count` pelotas
+  // distribuidas verticalmente en x = 0.5 (centro),
+  // y repartidas en posiciones y equiespaciadas.
+  const balls = [];
+  for (let i = 0; i < count; i++) {
+    balls.push({
       id: i,
-      x: Math.random(),  // [0..1]
-      y: Math.random(),
-      radius: 0.04,      // 4% del ancho (aprox.)
+      x: 0.5,                     // siempre en el centro horizontal
+      y: (i + 1) / (count + 1),   // distribuye verticalmente
+      radius: 0.04,              // ~4% del ancho
       active: true,
-    }));
+    });
   }
+  return balls;
+}
+
 
   return {
     // Estados
