@@ -33,18 +33,20 @@ export const BallInteractionGame: React.FC = () => {
       <canvas ref={canvasRef} style={{ width: "100%", height: "100%" }} />
 
       {/**Botón para reiniciar */}
-      <button
-        onClick={restartGame}
-        style={{
-          position: "absolute",
-          bottom: "5%",
-          right: "5%",
-          zIndex: 5,
-          padding: "10px 20px",
-        }}
-      >
-        Reiniciar
-      </button>
+      {isStarted && (
+        <button
+          onClick={restartGame}
+          style={{
+            position: "absolute",
+            bottom: "5%",
+            right: "5%",
+            zIndex: 5,
+            padding: "10px 20px",
+          }}
+        >
+          Reiniciar
+        </button>
+      )}
     </>
   );
 };
