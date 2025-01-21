@@ -1,7 +1,7 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 /* eslint-disable react-hooks/exhaustive-deps */
 import { useEffect, useRef, useState } from "react";
-import { db } from "../../services/firebase"; // Ajusta la ruta a tu archivo de config
+import { db } from "../../services/firebase";
 import {
   ref,
   onValue,
@@ -12,14 +12,16 @@ import {
   get,
   onDisconnect,
 } from "firebase/database";
-import { initPoseLandmarker } from "../../services/PoseLandmarker";
 import { initCamera } from "../../services/Camera";
+import { loadPoseModel } from "../../services/loadPoseModel";
+import { startPoseDetection } from "../../services/startPoseDetection";
 
 const ROOM_ID = "miSala";
 
 export function useMultiplayerGame() {
   const [isPreloading, setIsPreloading] = useState(true);
   const [isStarted, setIsStarted] = useState(false);
+  const [isFinishGame, setIsFinishGame] = useState(false);
   const [players, setPlayers] = useState<{ [key: string]: any }>({});
   const [balls, setBalls] = useState<{ [key: string]: any }>({});
   const latestBallsRef = useRef<{ [key: string]: any }>({});
@@ -30,6 +32,23 @@ export function useMultiplayerGame() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const landmarksRef = useRef<any[]>([]);
   const poseLandmarkerCleanupRef = useRef<null | (() => void)>(null);
+  const balloonImageRef = useRef<HTMLImageElement | null>(null);
+
+  // Estado para manejar la explosión en el DOM
+  // (x, y) coordenadas sobre el canvas donde explotó
+  // visible: si debemos mostrar el GIF o no
+  const [explosion, setExplosion] = useState<{
+    x: number;
+    y: number;
+    visible: boolean;
+  } | null>(null);
+
+  useEffect(() => {
+    // Cargar la imagen del globo
+    const img = new Image();
+    img.src = "/images/BOMBA.png"; // Ruta a tu imagen
+    balloonImageRef.current = img;
+  }, []);
 
   useEffect(() => {
     latestBallsRef.current = balls;
@@ -75,6 +94,7 @@ export function useMultiplayerGame() {
       );
       if (allBallsInactive && Object.keys(ballsData).length > 0) {
         update(ref(db, `rooms/${ROOM_ID}`), { isStarted: false });
+        setIsFinishGame(true);
       }
     });
   }, []);
@@ -118,12 +138,9 @@ export function useMultiplayerGame() {
   }
 
   async function preloadModel() {
+    // Si ya se cargó, no lo recarga
     try {
-      const dummyVideo = document.createElement("video");
-      poseLandmarkerCleanupRef.current = await initPoseLandmarker(
-        dummyVideo,
-        () => {}
-      );
+      await loadPoseModel(); // Se descarga y almacena en sharedPoseLandmarker
       setIsPreloading(false);
     } catch (error) {
       console.error("Error precargando el modelo:", error);
@@ -144,20 +161,19 @@ export function useMultiplayerGame() {
     const ctx = canvas.getContext("2d")!;
     ctxRef.current = ctx;
 
-    if (poseLandmarkerCleanupRef.current) {
-      poseLandmarkerCleanupRef.current();
-    }
+    const poseLandmarker = await loadPoseModel(); 
 
-    poseLandmarkerCleanupRef.current = await initPoseLandmarker(
+    poseLandmarkerCleanupRef.current = startPoseDetection(
       video,
+      poseLandmarker,
       (allLandmarks) => handlePoseResults(allLandmarks, canvas)
     );
 
-    const draw = () => {
+    function draw() {
       if (!ctxRef.current || !videoRef.current) return;
       drawFrame(ctxRef.current, videoRef.current, canvas, landmarksRef.current);
       requestAnimationFrame(draw);
-    };
+    }
     draw();
   }
 
@@ -175,8 +191,11 @@ export function useMultiplayerGame() {
       poseLandmarkerCleanupRef.current();
     }
 
-    poseLandmarkerCleanupRef.current = await initPoseLandmarker(
+    const poseLandmarker = await loadPoseModel();
+
+    poseLandmarkerCleanupRef.current = startPoseDetection(
       video,
+      poseLandmarker,
       (allLandmarks) => handlePoseResults(allLandmarks, canvas)
     );
 
@@ -208,6 +227,7 @@ export function useMultiplayerGame() {
         players: playersData,
         balls: newBallsObj,
       });
+      setIsFinishGame(false);
     } catch (error) {
       console.error("Error reiniciando la partida:", error);
     }
@@ -221,6 +241,17 @@ export function useMultiplayerGame() {
     checkInteractions(handLandmarks, canvas);
   }
 
+  /**
+   * Mostrar explosión en la interfaz (fuera del canvas)
+   */
+  function showExplosion(x: number, y: number) {
+    setExplosion({ x, y, visible: true });
+    // Ocultarla tras 1 segundo (ajusta el tiempo a tu gusto)
+    setTimeout(() => {
+      setExplosion((prev) => (prev ? { ...prev, visible: false } : null));
+    }, 1000);
+  }
+
   function checkInteractions(handLandmarks: any[], canvas: HTMLCanvasElement) {
     const currentBalls = { ...balls };
 
@@ -228,27 +259,38 @@ export function useMultiplayerGame() {
       Object.values(currentBalls).forEach((ball: any) => {
         if (!ball.active) return;
 
+        // Coordenadas del globo en el canvas
         const ballX = ball.relativeX * canvas.width;
         const ballY = ball.relativeY * canvas.height;
 
+        // Tamaño del globo (4 veces el radio => double radius^2)
+        const balloonRadius = ball.radius * 2;
+
+        // Distancia entre la mano y el centro del globo
         const dx = (1 - landmark.x) * canvas.width - ballX;
         const dy = landmark.y * canvas.height - ballY;
         const distanceSquared = dx * dx + dy * dy;
 
-        if (distanceSquared < ball.radius * ball.radius) {
+        // Verificar colisión
+        if (distanceSquared < balloonRadius * balloonRadius) {
           ball.active = false;
           setBalls(currentBalls);
 
+          // Actualizar en Firebase
           update(ref(db, `rooms/${ROOM_ID}/balls/${ball.id}`), {
             active: false,
           });
 
+          // Sumar puntuación
           runTransaction(
             ref(db, `rooms/${ROOM_ID}/players/${localPlayerId}/score`),
             (currentScore) => (currentScore || 0) + 1
           ).catch((error) => {
             console.error("Error incrementando score:", error);
           });
+
+          // Mostrar explosión en esa posición (x,y)
+          showExplosion(ballX, ballY);
         }
       });
     });
@@ -292,15 +334,24 @@ export function useMultiplayerGame() {
     ballsObj: any,
     canvas: HTMLCanvasElement
   ) {
+    const img = balloonImageRef.current;
+    if (!img) return; // Asegúrate de que la imagen esté cargada
+
     Object.values(ballsObj).forEach((ball: any) => {
       if (!ball.active) return;
+
       const x = ball.relativeX * canvas.width;
       const y = ball.relativeY * canvas.height;
 
-      ctx.beginPath();
-      ctx.arc(x, y, ball.radius, 0, 2 * Math.PI);
-      ctx.fillStyle = "blue";
-      ctx.fill();
+      // Dibuja la imagen del globo
+      const radius = ball.radius;
+      ctx.drawImage(
+        img,
+        x - radius, // Centrar la imagen en la posición de la bola
+        y - radius,
+        radius * 3, // Ancho de la imagen (doble del radio)
+        radius * 3 // Alto de la imagen
+      );
     });
   }
 
@@ -309,7 +360,7 @@ export function useMultiplayerGame() {
       id: i,
       relativeX: Math.random(), // Valor entre 0 y 1
       relativeY: Math.random(), // Valor entre 0 y 1
-      radius: 25, // Radio fijo en píxeles
+      radius: 30, // Radio fijo en píxeles
       active: true,
     }));
   }
@@ -322,6 +373,8 @@ export function useMultiplayerGame() {
     canvasRef,
     startGame,
     restartGame,
+    explosion,
+    isFinishGame,
   };
 }
 

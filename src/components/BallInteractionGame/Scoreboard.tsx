@@ -15,7 +15,7 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ players }) => {
     .sort(([, pA], [, pB]) => pB.score - pA.score)
     .map(([, player], index) => ({
       ...player,
-      rank: index + 1, // Asignar puesto basado en la posición
+      rank: index + 1,
     }));
 
   return (

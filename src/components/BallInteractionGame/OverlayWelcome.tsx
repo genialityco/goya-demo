@@ -5,6 +5,8 @@ interface OverlayWelcomeProps {
   isStarted: boolean;
   roomId: string;
   startGame: () => void;
+  isFinishGame: boolean;
+  restartGame: () => Promise<void>;
 }
 
 export const OverlayWelcome: React.FC<OverlayWelcomeProps> = ({
@@ -12,8 +14,16 @@ export const OverlayWelcome: React.FC<OverlayWelcomeProps> = ({
   isStarted,
   roomId,
   startGame,
+  isFinishGame,
+  restartGame,
 }) => {
-  if (isStarted) return null; // Si ya comenzó, no mostramos nada.
+  /**
+   * Si el juego ya comenzó y NO se ha marcado como finalizado,
+   * no mostramos nada (retornamos null).
+   */
+  if (isStarted && !isFinishGame) {
+    return null;
+  }
 
   return (
     <div
@@ -35,7 +45,23 @@ export const OverlayWelcome: React.FC<OverlayWelcomeProps> = ({
     >
       {isPreloading ? (
         <p>Cargando modelo...</p>
+      ) : isFinishGame ? (
+        /**
+         * Si el juego ha finalizado, mostramos un mensaje y un botón para reiniciar.
+         */
+        <>
+          <h2>¡El juego ha finalizado!</h2>
+          <button
+            style={{ fontSize: "18px", padding: "10px 20px", cursor: "pointer" }}
+            onClick={restartGame}
+          >
+            Reiniciar
+          </button>
+        </>
       ) : (
+        /**
+         * De lo contrario, mostramos la vista de bienvenida normal
+         */
         <>
           <h2>Bienvenido a la sala {roomId}</h2>
           <button
