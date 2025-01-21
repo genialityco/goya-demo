@@ -47,7 +47,7 @@ export const BallInteractionGame: React.FC = () => {
       {/* Aquí mostramos la explosión si está visible */}
       {explosion && explosion.visible && (
         <img
-          src="/gifs/energy-explosion.gif" 
+          src="/gifs/Z92e.gif" 
           alt="explosión"
           style={{
             position: "absolute",
