@@ -11,9 +11,12 @@ interface ScoreboardProps {
 
 export const Scoreboard: React.FC<ScoreboardProps> = ({ players }) => {
   // Ordenar jugadores por score descendente
-  const sortedPlayers = Object.entries(players).sort(
-    ([, pA], [, pB]) => pB.score - pA.score
-  );
+  const sortedPlayers = Object.entries(players)
+    .sort(([, pA], [, pB]) => pB.score - pA.score)
+    .map(([, player], index) => ({
+      ...player,
+      rank: index + 1, // Asignar puesto basado en la posición
+    }));
 
   return (
     <div
@@ -30,9 +33,9 @@ export const Scoreboard: React.FC<ScoreboardProps> = ({ players }) => {
       }}
     >
       <h3>Scoreboard</h3>
-      {sortedPlayers.map(([playerId, player]) => (
-        <div key={playerId}>
-          {player.name}: {player.score}
+      {sortedPlayers.map((player, index) => (
+        <div key={index}>
+          <strong>#{player.rank}</strong> {player.name}: {player.score}
         </div>
       ))}
     </div>

@@ -48,7 +48,6 @@ export function useMultiplayerGame() {
     onValue(roomRef, (snapshot) => {
       const roomData = snapshot.val();
       if (!roomData) return;
-      console.log("Cambio");
       setIsStarted(roomData.isStarted || false);
       setPlayers(roomData.players || {});
       setBalls(roomData.balls || {});
@@ -80,34 +79,43 @@ export function useMultiplayerGame() {
     });
   }, []);
 
+  useEffect(() => {
+    if (isStarted) {
+      startLocalGame();
+    }
+  }, [isStarted]);
+
   async function registerPlayerInRoom() {
     const playerPath = `rooms/${ROOM_ID}/players/${localPlayerId}`;
     const playerRef = ref(db, playerPath);
-  
+
     await set(playerRef, {
       name: `Player-${localPlayerId.slice(0, 5)}`,
       score: 0,
     });
-  
+
     onDisconnect(playerRef).remove();
-  
+
     const roomRef = ref(db, `rooms/${ROOM_ID}`);
-    onValue(roomRef, (snapshot) => {
-      const data = snapshot.val();
-      if (!data?.balls) {
-        const initialBalls = generateBalls(10);
-        const ballsObject: any = {};
-        initialBalls.forEach((b) => {
-          ballsObject[b.id] = b;
-        });
-        update(ref(db, `rooms/${ROOM_ID}`), {
-          balls: ballsObject,
-          isStarted: false,
-        });
-      }
-    }, { onlyOnce: true });
+    onValue(
+      roomRef,
+      (snapshot) => {
+        const data = snapshot.val();
+        if (!data?.balls) {
+          const initialBalls = generateBalls(10);
+          const ballsObject: any = {};
+          initialBalls.forEach((b) => {
+            ballsObject[b.id] = b;
+          });
+          update(ref(db, `rooms/${ROOM_ID}`), {
+            balls: ballsObject,
+            isStarted: false,
+          });
+        }
+      },
+      { onlyOnce: true }
+    );
   }
-  
 
   async function preloadModel() {
     try {
@@ -125,9 +133,35 @@ export function useMultiplayerGame() {
 
   async function startGame() {
     if (isPreloading || isStarted) return;
-
     update(ref(db, `rooms/${ROOM_ID}`), { isStarted: true });
 
+    const video = await initCamera();
+    videoRef.current = video;
+
+    const canvas = canvasRef.current!;
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    const ctx = canvas.getContext("2d")!;
+    ctxRef.current = ctx;
+
+    if (poseLandmarkerCleanupRef.current) {
+      poseLandmarkerCleanupRef.current();
+    }
+
+    poseLandmarkerCleanupRef.current = await initPoseLandmarker(
+      video,
+      (allLandmarks) => handlePoseResults(allLandmarks, canvas)
+    );
+
+    const draw = () => {
+      if (!ctxRef.current || !videoRef.current) return;
+      drawFrame(ctxRef.current, videoRef.current, canvas, landmarksRef.current);
+      requestAnimationFrame(draw);
+    };
+    draw();
+  }
+
+  async function startLocalGame() {
     const video = await initCamera();
     videoRef.current = video;
 
@@ -189,24 +223,26 @@ export function useMultiplayerGame() {
 
   function checkInteractions(handLandmarks: any[], canvas: HTMLCanvasElement) {
     const currentBalls = { ...balls };
-  
+
     handLandmarks.forEach((landmark) => {
       Object.values(currentBalls).forEach((ball: any) => {
         if (!ball.active) return;
-  
+
         const ballX = ball.relativeX * canvas.width;
         const ballY = ball.relativeY * canvas.height;
-  
+
         const dx = (1 - landmark.x) * canvas.width - ballX;
         const dy = landmark.y * canvas.height - ballY;
         const distanceSquared = dx * dx + dy * dy;
-  
+
         if (distanceSquared < ball.radius * ball.radius) {
           ball.active = false;
           setBalls(currentBalls);
-  
-          update(ref(db, `rooms/${ROOM_ID}/balls/${ball.id}`), { active: false });
-  
+
+          update(ref(db, `rooms/${ROOM_ID}/balls/${ball.id}`), {
+            active: false,
+          });
+
           runTransaction(
             ref(db, `rooms/${ROOM_ID}/players/${localPlayerId}/score`),
             (currentScore) => (currentScore || 0) + 1
@@ -217,7 +253,6 @@ export function useMultiplayerGame() {
       });
     });
   }
-  
 
   function drawFrame(
     ctx: CanvasRenderingContext2D,
@@ -252,19 +287,22 @@ export function useMultiplayerGame() {
     });
   }
 
-  function drawBalls(ctx: CanvasRenderingContext2D, ballsObj: any, canvas: HTMLCanvasElement) {
+  function drawBalls(
+    ctx: CanvasRenderingContext2D,
+    ballsObj: any,
+    canvas: HTMLCanvasElement
+  ) {
     Object.values(ballsObj).forEach((ball: any) => {
       if (!ball.active) return;
       const x = ball.relativeX * canvas.width;
       const y = ball.relativeY * canvas.height;
-  
+
       ctx.beginPath();
       ctx.arc(x, y, ball.radius, 0, 2 * Math.PI);
       ctx.fillStyle = "blue";
       ctx.fill();
     });
   }
-  
 
   function generateBalls(count: number) {
     return Array.from({ length: count }).map((_, i) => ({
