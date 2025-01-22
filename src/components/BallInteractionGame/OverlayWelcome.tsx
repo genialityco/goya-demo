@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 import { Scoreboard } from "./Scoreboard";
 
 interface Player {
@@ -14,6 +14,7 @@ interface OverlayWelcomeProps {
   isFinishGame: boolean;
   restartGame: () => Promise<void>;
   players: { [key: string]: Player };
+  setNicknameLocal: React.Dispatch<React.SetStateAction<string>>;
 }
 
 export const OverlayWelcome: React.FC<OverlayWelcomeProps> = ({
@@ -23,6 +24,7 @@ export const OverlayWelcome: React.FC<OverlayWelcomeProps> = ({
   isFinishGame,
   restartGame,
   players,
+  setNicknameLocal,
 }) => {
   // Detecta si es móvil o escritorio
   const isMobile = window.innerWidth <= 768;
@@ -32,18 +34,15 @@ export const OverlayWelcome: React.FC<OverlayWelcomeProps> = ({
     ? "/MOBILE/BALLOON_HOME_MOBILE.png"
     : "/DESKTOP/FONDO_DSKTOP.png";
 
-  // Estado local para el nickname
-  const [nickname, setNickname] = useState("");
-
   // Si el juego está iniciado y no está finalizado, no mostramos este overlay
   if (isStarted && !isFinishGame) {
     return null;
   }
 
-  function onStartClicked() {
-    // Llamamos a la prop "startGame" pasándole el nickname
-    startGame(nickname.trim());
-  }
+  // function onStartClicked() {
+  //   // Llamamos a la prop "startGame" pasándole el nickname
+  //   startGame(nickname.trim());
+  // }
 
   return (
     <div
@@ -92,16 +91,16 @@ export const OverlayWelcome: React.FC<OverlayWelcomeProps> = ({
           <input
             type="text"
             placeholder="Ingresa tu nickname"
+            onChange={(e) => setNicknameLocal(e.target.value)}
             style={{
               fontSize: "18px",
               padding: "10px",
               marginTop: "20px",
+              marginBottom: "20px",
               borderRadius: "8px",
               border: "none",
               textAlign: "center",
             }}
-            value={nickname}
-            onChange={(e) => setNickname(e.target.value)}
           />
           <h3
             style={{
@@ -124,7 +123,7 @@ export const OverlayWelcome: React.FC<OverlayWelcomeProps> = ({
               height: "auto",
               cursor: "pointer",
             }}
-            onClick={onStartClicked}
+            onClick={() => startGame("")}
           />
         </>
       )}

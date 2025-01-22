@@ -19,6 +19,7 @@ import { startPoseDetection } from "../../services/startPoseDetection";
 const ROOM_ID = "miSala";
 
 export function useMultiplayerGame() {
+  const [nicknameLocal, setNicknameLocal] = useState("");
   const [isPreloading, setIsPreloading] = useState(true);
   const [isStarted, setIsStarted] = useState(false);
   const [isFinishGame, setIsFinishGame] = useState(false);
@@ -165,18 +166,19 @@ export function useMultiplayerGame() {
   }
 
   /**
-   * Función invocada cuando el usuario *local* presiona el botón "Comenzar"
-   * en el overlay y pasa un nickname.
+   * Llamado cuando el usuario local presiona "Comenzar":
+   * - NO inicia la partida local directamente,
+   *   sino que marca "isStarted = true" en Firebase.
    */
   async function startGameWithNickname(nickname: string) {
-    // 1) Actualizamos su nombre en Firebase (si no está vacío)
-    if (nickname) {
-      await update(ref(db, `rooms/${ROOM_ID}/players/${localPlayerId}`), {
-        name: nickname,
-      });
-    }
-    // 2) Marcamos isStarted = true en la sala (esto disparará el useEffect -> startLocalGame)
-    await update(ref(db, `rooms/${ROOM_ID}`), { isStarted: true });
+    // Guardamos en el hook
+    setNicknameLocal(nickname);
+
+    // Decidimos iniciar la sala (lo que disparará isStarted = true)
+    // y en el useEffect([isStarted]) se hará startLocalGame()
+    await update(ref(db, `rooms/${ROOM_ID}`), {
+      isStarted: true,
+    });
   }
 
   async function startGame() {
@@ -209,6 +211,15 @@ export function useMultiplayerGame() {
   }
 
   async function startLocalGame() {
+    // 1) Actualizar mi nickname en Firebase, si no está vacío
+    if (nicknameLocal.trim()) {
+      await update(ref(db, `rooms/${ROOM_ID}/players/${localPlayerId}`), {
+        name: nicknameLocal.trim(),
+      });
+    }
+
+    setIsStarted(true);
+
     const video = await initCamera();
     videoRef.current = video;
 
@@ -453,6 +464,7 @@ export function useMultiplayerGame() {
     restartGame,
     explosion,
     isFinishGame,
+    setNicknameLocal
   };
 }
 

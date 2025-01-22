@@ -16,6 +16,7 @@ export const BallInteractionGame: React.FC = () => {
     restartGame,
     explosion,
     isFinishGame,
+    setNicknameLocal
   } = useMultiplayerGame();
 
   /**
@@ -39,6 +40,7 @@ export const BallInteractionGame: React.FC = () => {
         isFinishGame={isFinishGame}
         restartGame={restartGame}
         players={players}
+        setNicknameLocal={setNicknameLocal}
       />
 
       {isStarted && !isFinishGame && <Scoreboard players={players} />}
