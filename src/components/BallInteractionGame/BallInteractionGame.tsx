@@ -14,8 +14,8 @@ export const BallInteractionGame: React.FC = () => {
     canvasRef,
     startGame,
     restartGame,
-    explosion, 
-    isFinishGame
+    explosion,
+    isFinishGame,
   } = useMultiplayerGame();
 
   return (
@@ -28,6 +28,7 @@ export const BallInteractionGame: React.FC = () => {
         startGame={startGame}
         isFinishGame={isFinishGame}
         restartGame={restartGame}
+        players={players}
       />
 
       {/* Scoreboard (tabla de puntos) */}
@@ -38,25 +39,35 @@ export const BallInteractionGame: React.FC = () => {
 
       {/* Botón para reiniciar */}
       {isStarted && (
-        <button
-          onClick={restartGame}
+        <img
+          src="/DESKTOP/BOTOM-RESTART.png"
+          alt="Botón reiniciar"
+          style={{
+            position: "absolute",
+            left: "3%",
+            bottom: "5%",
+            width: "200px",
+            height: "auto",
+            cursor: "pointer",
+          }}
           className="restart-button"
+          onClick={restartGame}
         />
       )}
 
       {/* Aquí mostramos la explosión si está visible */}
       {explosion && explosion.visible && (
         <img
-          src="/gifs/Z92e.gif" 
+          src="/gifs/3iCN.gif"
           alt="explosión"
           style={{
             position: "absolute",
-            // Ajustamos para centrar la imagen en x, y
-            left: explosion.x - 50,
-            top: explosion.y - 50,
-            width: "200px",
-            height: "200px",
-            pointerEvents: "none", // Para que no interfiera con clics, etc.
+            // Ajusta la mitad del GIF si quieres centrarlo
+            left: explosion.x - 75,
+            top: explosion.y - 75,
+            width: "150px",
+            height: "150px",
+            pointerEvents: "none",
           }}
         />
       )}

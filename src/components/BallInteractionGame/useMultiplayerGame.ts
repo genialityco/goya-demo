@@ -33,6 +33,7 @@ export function useMultiplayerGame() {
   const landmarksRef = useRef<any[]>([]);
   const poseLandmarkerCleanupRef = useRef<null | (() => void)>(null);
   const balloonImageRef = useRef<HTMLImageElement | null>(null);
+  const frameImageRef = useRef<HTMLImageElement | null>(null);
 
   // Estado para manejar la explosión en el DOM
   // (x, y) coordenadas sobre el canvas donde explotó
@@ -48,6 +49,14 @@ export function useMultiplayerGame() {
     const img = new Image();
     img.src = "/images/BOMBA.png"; // Ruta a tu imagen
     balloonImageRef.current = img;
+
+    // Cargar la imagen del marco
+    const frameImg = new Image();
+    const isMobile = window.innerWidth <= 768;
+    frameImg.src = isMobile
+      ? "/MOBILE/BALLOON_INTERNA_MOBILE.png"
+      : "/DESKTOP/FONDO_BALLOON_INTERNA.png";
+    frameImageRef.current = frameImg;
   }, []);
 
   useEffect(() => {
@@ -122,7 +131,7 @@ export function useMultiplayerGame() {
       (snapshot) => {
         const data = snapshot.val();
         if (!data?.balls) {
-          const initialBalls = generateBalls(10);
+          const initialBalls = generateBalls(100);
           const ballsObject: any = {};
           initialBalls.forEach((b) => {
             ballsObject[b.id] = b;
@@ -148,6 +157,13 @@ export function useMultiplayerGame() {
     }
   }
 
+  function getBallCoordinates(ball: any, canvas: HTMLCanvasElement) {
+    // Queremos que 0 => 0.15 * canvas y 1 => 0.95 * canvas
+    const centerX = (0.15 + 0.8 * ball.relativeX) * canvas.width;
+    const centerY = (0.15 + 0.8 * ball.relativeY) * canvas.height;
+    return { centerX, centerY };
+  }
+
   async function startGame() {
     if (isPreloading || isStarted) return;
     update(ref(db, `rooms/${ROOM_ID}`), { isStarted: true });
@@ -161,7 +177,7 @@ export function useMultiplayerGame() {
     const ctx = canvas.getContext("2d")!;
     ctxRef.current = ctx;
 
-    const poseLandmarker = await loadPoseModel(); 
+    const poseLandmarker = await loadPoseModel();
 
     poseLandmarkerCleanupRef.current = startPoseDetection(
       video,
@@ -216,7 +232,7 @@ export function useMultiplayerGame() {
         playersData[playerId].score = 0;
       });
 
-      const newBalls = generateBalls(5);
+      const newBalls = generateBalls(10);
       const newBallsObj: Record<string, any> = {};
       newBalls.forEach((b) => {
         newBallsObj[b.id] = b;
@@ -260,15 +276,17 @@ export function useMultiplayerGame() {
         if (!ball.active) return;
 
         // Coordenadas del globo en el canvas
-        const ballX = ball.relativeX * canvas.width;
-        const ballY = ball.relativeY * canvas.height;
+        // const ballX = ball.relativeX * canvas.width;
+        // const ballY = ball.relativeY * canvas.height;
+
+        const { centerX, centerY } = getBallCoordinates(ball, canvas);
 
         // Tamaño del globo (4 veces el radio => double radius^2)
-        const balloonRadius = ball.radius * 2;
+        const balloonRadius = ball.radius * 3;
 
         // Distancia entre la mano y el centro del globo
-        const dx = (1 - landmark.x) * canvas.width - ballX;
-        const dy = landmark.y * canvas.height - ballY;
+        const dx = (1 - landmark.x) * canvas.width - centerX;
+        const dy = landmark.y * canvas.height - centerY;
         const distanceSquared = dx * dx + dy * dy;
 
         // Verificar colisión
@@ -290,7 +308,7 @@ export function useMultiplayerGame() {
           });
 
           // Mostrar explosión en esa posición (x,y)
-          showExplosion(ballX, ballY);
+          showExplosion(centerX, centerY);
         }
       });
     });
@@ -311,6 +329,7 @@ export function useMultiplayerGame() {
 
     if (landmarks) drawLandmarks(ctx, canvas, landmarks);
     drawBalls(ctx, latestBallsRef.current, canvas);
+    drawFrameOverlay(ctx, canvas);
   }
 
   function drawLandmarks(
@@ -335,34 +354,77 @@ export function useMultiplayerGame() {
     canvas: HTMLCanvasElement
   ) {
     const img = balloonImageRef.current;
-    if (!img) return; // Asegúrate de que la imagen esté cargada
+    if (!img) return;
 
     Object.values(ballsObj).forEach((ball: any) => {
       if (!ball.active) return;
 
-      const x = ball.relativeX * canvas.width;
-      const y = ball.relativeY * canvas.height;
+      const { centerX, centerY } = getBallCoordinates(ball, canvas);
 
       // Dibuja la imagen del globo
       const radius = ball.radius;
       ctx.drawImage(
         img,
-        x - radius, // Centrar la imagen en la posición de la bola
-        y - radius,
-        radius * 3, // Ancho de la imagen (doble del radio)
-        radius * 3 // Alto de la imagen
+        centerX - radius,
+        centerY - radius,
+        radius * 3,
+        radius * 3
       );
     });
   }
 
   function generateBalls(count: number) {
-    return Array.from({ length: count }).map((_, i) => ({
-      id: i,
-      relativeX: Math.random(), // Valor entre 0 y 1
-      relativeY: Math.random(), // Valor entre 0 y 1
-      radius: 30, // Radio fijo en píxeles
-      active: true,
-    }));
+    const balls = [];
+    const maxAttempts = 100;
+
+    for (let i = 0; i < count; i++) {
+      let valid = false;
+      let attempts = 0;
+
+      let newBall = {
+        id: 0,
+        relativeX: 0,
+        relativeY: 0,
+        radius: 0,
+        active: false,
+      };
+
+      while (!valid && attempts < maxAttempts) {
+        const relativeX = 0.15 + Math.random() * 0.8;
+        const relativeY = 0.15 + Math.random() * 0.8;
+        const radius = 30;
+
+        newBall = { id: i, relativeX, relativeY, radius, active: true };
+        valid = balls.every((ball) => {
+          const dx = (ball.relativeX - newBall.relativeX) * window.innerWidth;
+          const dy = (ball.relativeY - newBall.relativeY) * window.innerHeight;
+          const distance = Math.sqrt(dx * dx + dy * dy);
+          return distance > (ball.radius + newBall.radius) * 2;
+        });
+
+        attempts++;
+      }
+
+      if (valid) {
+        balls.push(newBall);
+      } else {
+        console.warn(
+          `No se pudo colocar la pelota ${i} sin superposición después de ${maxAttempts} intentos.`
+        );
+      }
+    }
+
+    return balls;
+  }
+
+  function drawFrameOverlay(
+    ctx: CanvasRenderingContext2D,
+    canvas: HTMLCanvasElement
+  ) {
+    const frameImg = frameImageRef.current;
+    if (!frameImg) return;
+
+    ctx.drawImage(frameImg, 0, 0, canvas.width, canvas.height);
   }
 
   return {

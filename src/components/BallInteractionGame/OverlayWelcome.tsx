@@ -1,5 +1,10 @@
 import React from "react";
+import { Scoreboard } from "./Scoreboard"; // <-- importar tu componente de puntuación
 
+interface Player {
+  name: string;
+  score: number;
+}
 interface OverlayWelcomeProps {
   isPreloading: boolean;
   isStarted: boolean;
@@ -7,20 +12,26 @@ interface OverlayWelcomeProps {
   startGame: () => void;
   isFinishGame: boolean;
   restartGame: () => Promise<void>;
+  players: { [key: string]: Player }; // <-- nueva prop para pasar jugadores
 }
 
 export const OverlayWelcome: React.FC<OverlayWelcomeProps> = ({
   isPreloading,
   isStarted,
-  roomId,
   startGame,
   isFinishGame,
   restartGame,
+  players, // <-- recibimos los jugadores
 }) => {
-  /**
-   * Si el juego ya comenzó y NO se ha marcado como finalizado,
-   * no mostramos nada (retornamos null).
-   */
+  // Detecta si es móvil o escritorio utilizando el ancho de la ventana.
+  const isMobile = window.innerWidth <= 768;
+
+  // Selecciona la imagen de fondo según el dispositivo.
+  const backgroundImage = isMobile
+    ? "/MOBILE/BALLOON_HOME_MOBILE.png"
+    : "/DESKTOP/FONDO_DSKTOP.png";
+
+  // Si el juego ya comenzó y no se ha marcado como finalizado, no mostramos nada (retornamos null).
   if (isStarted && !isFinishGame) {
     return null;
   }
@@ -34,7 +45,10 @@ export const OverlayWelcome: React.FC<OverlayWelcomeProps> = ({
         left: 0,
         width: "100vw",
         height: "100vh",
-        backgroundColor: "rgba(0,0,0,0.8)",
+        backgroundImage: `url(${backgroundImage})`,
+        backgroundSize: "cover",
+        backgroundPosition: "center",
+        backgroundRepeat: "no-repeat",
         color: "#fff",
         display: "flex",
         flexDirection: "column",
@@ -47,29 +61,56 @@ export const OverlayWelcome: React.FC<OverlayWelcomeProps> = ({
         <p>Cargando modelo...</p>
       ) : isFinishGame ? (
         /**
-         * Si el juego ha finalizado, mostramos un mensaje y un botón para reiniciar.
+         * Si el juego ha finalizado, mostramos un mensaje, la tabla
+         * de puntuaciones y un botón para reiniciar.
          */
         <>
           <h2>¡El juego ha finalizado!</h2>
-          <button
-            style={{ fontSize: "18px", padding: "10px 20px", cursor: "pointer" }}
+          {/* Aquí renderizas la tabla de puntuaciones */}
+          <Scoreboard players={players} overlay />
+
+          <img
+            src="/DESKTOP/BOTOM-RESTART.png"
+            alt="Botón restart"
+            style={{
+              position: "absolute",
+              bottom: "4%",
+              width: "200px",
+              height: "auto",
+              cursor: "pointer",
+            }}
+            className="restart-button"
             onClick={restartGame}
-          >
-            Reiniciar
-          </button>
+          />
         </>
       ) : (
         /**
          * De lo contrario, mostramos la vista de bienvenida normal
          */
         <>
-          <h2>Bienvenido a la sala {roomId}</h2>
-          <button
-            style={{ fontSize: "18px", padding: "10px 20px", cursor: "pointer" }}
-            onClick={startGame}
+          <h3
+            style={{
+              textAlign: "center",
+              maxWidth: "500px",
+              margin: "0 auto",
+            }}
           >
-            Empezar
-          </button>
+            Un demo multijugador donde cada toque cuenta. Trabaja en equipo o
+            compite para estallar los globos y ganar puntos.
+          </h3>
+          <img
+            src="/DESKTOP/BOTON_COMENZAR.png"
+            alt="Botón comenzar"
+            style={{
+              position: "absolute",
+              bottom: "4%",
+              width: "200px",
+              height: "auto",
+              cursor: "pointer",
+            }}
+            className="restart-button"
+            onClick={startGame}
+          />
         </>
       )}
     </div>
