@@ -1,18 +1,19 @@
-import React from "react";
-import { Scoreboard } from "./Scoreboard"; // <-- importar tu componente de puntuación
+import React, { useState } from "react";
+import { Scoreboard } from "./Scoreboard";
 
 interface Player {
   name: string;
   score: number;
 }
+
 interface OverlayWelcomeProps {
   isPreloading: boolean;
   isStarted: boolean;
   roomId: string;
-  startGame: () => void;
+  startGame: (nickname: string) => void; // => le pasaremos nickname
   isFinishGame: boolean;
   restartGame: () => Promise<void>;
-  players: { [key: string]: Player }; // <-- nueva prop para pasar jugadores
+  players: { [key: string]: Player };
 }
 
 export const OverlayWelcome: React.FC<OverlayWelcomeProps> = ({
@@ -21,19 +22,27 @@ export const OverlayWelcome: React.FC<OverlayWelcomeProps> = ({
   startGame,
   isFinishGame,
   restartGame,
-  players, // <-- recibimos los jugadores
+  players,
 }) => {
-  // Detecta si es móvil o escritorio utilizando el ancho de la ventana.
+  // Detecta si es móvil o escritorio
   const isMobile = window.innerWidth <= 768;
 
-  // Selecciona la imagen de fondo según el dispositivo.
+  // Selecciona la imagen de fondo
   const backgroundImage = isMobile
     ? "/MOBILE/BALLOON_HOME_MOBILE.png"
     : "/DESKTOP/FONDO_DSKTOP.png";
 
-  // Si el juego ya comenzó y no se ha marcado como finalizado, no mostramos nada (retornamos null).
+  // Estado local para el nickname
+  const [nickname, setNickname] = useState("");
+
+  // Si el juego está iniciado y no está finalizado, no mostramos este overlay
   if (isStarted && !isFinishGame) {
     return null;
+  }
+
+  function onStartClicked() {
+    // Llamamos a la prop "startGame" pasándole el nickname
+    startGame(nickname.trim());
   }
 
   return (
@@ -60,34 +69,40 @@ export const OverlayWelcome: React.FC<OverlayWelcomeProps> = ({
       {isPreloading ? (
         <p>Cargando modelo...</p>
       ) : isFinishGame ? (
-        /**
-         * Si el juego ha finalizado, mostramos un mensaje, la tabla
-         * de puntuaciones y un botón para reiniciar.
-         */
+        // JUEGO FINALIZADO: mostramos scoreboard y botón de reiniciar
         <>
           <h2>¡El juego ha finalizado!</h2>
-          {/* Aquí renderizas la tabla de puntuaciones */}
-          <Scoreboard players={players} overlay />
-
-          <img
-            src="/DESKTOP/BOTOM-RESTART.png"
-            alt="Botón restart"
+          <Scoreboard players={players} />
+          <button
             style={{
-              position: "absolute",
-              bottom: "4%",
-              width: "200px",
-              height: "auto",
+              fontSize: "18px",
+              padding: "10px 20px",
               cursor: "pointer",
+              marginTop: "20px",
             }}
-            className="restart-button"
             onClick={restartGame}
-          />
+          >
+            Reiniciar
+          </button>
         </>
       ) : (
-        /**
-         * De lo contrario, mostramos la vista de bienvenida normal
-         */
+        // OVERLAY DE BIENVENIDA (antes de iniciar juego)
         <>
+          {/* Campo para nickname */}
+          <input
+            type="text"
+            placeholder="Ingresa tu nickname"
+            style={{
+              fontSize: "18px",
+              padding: "10px",
+              marginTop: "20px",
+              borderRadius: "8px",
+              border: "none",
+              textAlign: "center",
+            }}
+            value={nickname}
+            onChange={(e) => setNickname(e.target.value)}
+          />
           <h3
             style={{
               textAlign: "center",
@@ -98,6 +113,7 @@ export const OverlayWelcome: React.FC<OverlayWelcomeProps> = ({
             Un demo multijugador donde cada toque cuenta. Trabaja en equipo o
             compite para estallar los globos y ganar puntos.
           </h3>
+          {/* Botón para iniciar (si decides que cualquiera puede iniciar) */}
           <img
             src="/DESKTOP/BOTON_COMENZAR.png"
             alt="Botón comenzar"
@@ -108,8 +124,7 @@ export const OverlayWelcome: React.FC<OverlayWelcomeProps> = ({
               height: "auto",
               cursor: "pointer",
             }}
-            className="restart-button"
-            onClick={startGame}
+            onClick={onStartClicked}
           />
         </>
       )}

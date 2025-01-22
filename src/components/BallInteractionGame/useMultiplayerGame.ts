@@ -164,6 +164,21 @@ export function useMultiplayerGame() {
     return { centerX, centerY };
   }
 
+  /**
+   * Función invocada cuando el usuario *local* presiona el botón "Comenzar"
+   * en el overlay y pasa un nickname.
+   */
+  async function startGameWithNickname(nickname: string) {
+    // 1) Actualizamos su nombre en Firebase (si no está vacío)
+    if (nickname) {
+      await update(ref(db, `rooms/${ROOM_ID}/players/${localPlayerId}`), {
+        name: nickname,
+      });
+    }
+    // 2) Marcamos isStarted = true en la sala (esto disparará el useEffect -> startLocalGame)
+    await update(ref(db, `rooms/${ROOM_ID}`), { isStarted: true });
+  }
+
   async function startGame() {
     if (isPreloading || isStarted) return;
     update(ref(db, `rooms/${ROOM_ID}`), { isStarted: true });
@@ -434,6 +449,7 @@ export function useMultiplayerGame() {
     balls,
     canvasRef,
     startGame,
+    startGameWithNickname,
     restartGame,
     explosion,
     isFinishGame,

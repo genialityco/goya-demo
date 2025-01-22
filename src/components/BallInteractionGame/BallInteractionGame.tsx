@@ -12,11 +12,21 @@ export const BallInteractionGame: React.FC = () => {
     isStarted,
     players,
     canvasRef,
-    startGame,
+    startGameWithNickname,
     restartGame,
     explosion,
     isFinishGame,
   } = useMultiplayerGame();
+
+  /**
+   * Esta función la pasamos al OverlayWelcome. Recibe el nickname
+   * y llama a la lógica de "startGameWithNickname".
+   */
+  const handleStartGame = (nickname: string) => {
+    // Aquí decides si este jugador puede iniciar la partida:
+    // Por ejemplo, siempre lo dejas iniciar.
+    startGameWithNickname(nickname);
+  };
 
   return (
     <div className="game-container">
@@ -25,14 +35,13 @@ export const BallInteractionGame: React.FC = () => {
         isPreloading={isPreloading}
         isStarted={isStarted}
         roomId={ROOM_ID}
-        startGame={startGame}
+        startGame={handleStartGame}
         isFinishGame={isFinishGame}
         restartGame={restartGame}
         players={players}
       />
 
-      {/* Scoreboard (tabla de puntos) */}
-      <Scoreboard players={players} />
+      {isStarted && !isFinishGame && <Scoreboard players={players} />}
 
       {/* Canvas del juego */}
       <canvas ref={canvasRef} className="game-canvas" />
@@ -62,7 +71,6 @@ export const BallInteractionGame: React.FC = () => {
           alt="explosión"
           style={{
             position: "absolute",
-            // Ajusta la mitad del GIF si quieres centrarlo
             left: explosion.x - 75,
             top: explosion.y - 75,
             width: "150px",
