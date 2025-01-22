@@ -179,6 +179,9 @@ export function useMultiplayerGame() {
     await update(ref(db, `rooms/${ROOM_ID}`), {
       isStarted: true,
     });
+    await update(ref(db, `rooms/${ROOM_ID}/players/${localPlayerId}`), {
+      name: nicknameLocal.trim(),
+    });
   }
 
   async function startGame() {
@@ -464,7 +467,7 @@ export function useMultiplayerGame() {
     restartGame,
     explosion,
     isFinishGame,
-    setNicknameLocal
+    setNicknameLocal,
   };
 }
 
