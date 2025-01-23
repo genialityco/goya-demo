@@ -367,7 +367,7 @@ export function useMultiplayerGame() {
 
         // Coordenadas del globo en el canvas
         const { centerX, centerY } = getBallCoordinates(ball, canvas);
-        const balloonRadius = ball.radius * 3; // Ajusta a tu gusto
+        const balloonRadius = ball.radius * 2; // Ajusta a tu gusto
 
         // Distancia entre la mano y el centro del globo
         const dx = (1 - landmark.x) * canvas.width - centerX;
@@ -505,45 +505,60 @@ export function useMultiplayerGame() {
   function generateBalls(count: number) {
     const balls = [];
     const maxAttempts = 100;
-
+  
+    // Límites en coordenadas RELATIVAS (entre 0 y 1)
+    // Ajústalos según el espacio que quieras “reservar” para el marco
+    const xMin = 0.15;
+    const xMax = 0.8;
+    const yMin = 0.15;
+    const yMax = 0.8;
+  
     for (let i = 0; i < count; i++) {
       let valid = false;
       let attempts = 0;
-
-      let newBall = {
-        id: 0,
+  
+      const newBall = {
+        id: i,
         relativeX: 0,
         relativeY: 0,
         radius: 30,
         active: true,
       };
-
+  
       while (!valid && attempts < maxAttempts) {
-        const relativeX = Math.random();
-        const relativeY = Math.random();
-        newBall = { ...newBall, id: i, relativeX, relativeY };
-
+        // Generamos una posición aleatoria SÓLO dentro del bounding box
+        const rx = xMin + Math.random() * (xMax - xMin);
+        const ry = yMin + Math.random() * (yMax - yMin);
+  
+        newBall.relativeX = rx;
+        newBall.relativeY = ry;
+  
+        // Verificamos que no se superponga con otras pelotas ya colocadas
         valid = balls.every((ball) => {
-          const dx = (ball.relativeX - newBall.relativeX) * window.innerWidth;
-          const dy = (ball.relativeY - newBall.relativeY) * window.innerHeight;
+          const dx =
+            (ball.relativeX - newBall.relativeX) * window.innerWidth;
+          const dy =
+            (ball.relativeY - newBall.relativeY) * window.innerHeight;
           const distance = Math.sqrt(dx * dx + dy * dy);
+  
           return distance > (ball.radius + newBall.radius) * 2;
         });
-
+  
         attempts++;
       }
-
+  
       if (valid) {
         balls.push(newBall);
       } else {
         console.warn(
-          `No se pudo colocar la pelota ${i} sin superposición después de ${maxAttempts} intentos.`
+          `No se pudo colocar la pelota ${i} sin superposición tras ${maxAttempts} intentos.`
         );
       }
     }
-
+  
     return balls;
   }
+  
 
   return {
     // Estados de precarga, unión a sala, y juego
