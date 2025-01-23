@@ -7,24 +7,41 @@ interface Player {
 }
 
 interface OverlayWelcomeProps {
+  // De tu custom hook
   isPreloading: boolean;
   isStarted: boolean;
-  roomId: string;
-  startGame: (nickname: string) => void; // => le pasaremos nickname
   isFinishGame: boolean;
-  restartGame: () => Promise<void>;
+  userJoined: boolean;
+  isOwner: boolean;
+
   players: { [key: string]: Player };
+
+  // Métodos
+  joinRoom: (nickname: string) => void;
+  startGame: () => Promise<void>;
+  restartGame: () => Promise<void>;
+
+  // Para el input de nickname
+  nicknameLocal: string;
   setNicknameLocal: React.Dispatch<React.SetStateAction<string>>;
+
+  // Saber si local ya inició cámara, etc.
+  userStartLocalGame: boolean;
 }
 
 export const OverlayWelcome: React.FC<OverlayWelcomeProps> = ({
   isPreloading,
   isStarted,
-  startGame,
   isFinishGame,
-  restartGame,
+  userJoined,
+  isOwner,
   players,
+  joinRoom,
+  startGame,
+  restartGame,
+  nicknameLocal,
   setNicknameLocal,
+  userStartLocalGame,
 }) => {
   // Detecta si es móvil o escritorio
   const isMobile = window.innerWidth <= 768;
@@ -34,15 +51,11 @@ export const OverlayWelcome: React.FC<OverlayWelcomeProps> = ({
     ? "/MOBILE/BALLOON_HOME_MOBILE.png"
     : "/DESKTOP/FONDO_DSKTOP.png";
 
-  // Si el juego está iniciado y no está finalizado, no mostramos este overlay
-  if (isStarted && !isFinishGame) {
+  // Lógica de visibilidad del overlay:
+  // 1) Si el juego está en curso y no ha finalizado y el usuario ya “empezó local”, ocultar overlay
+  if (isStarted && !isFinishGame && userStartLocalGame) {
     return null;
   }
-
-  // function onStartClicked() {
-  //   // Llamamos a la prop "startGame" pasándole el nickname
-  //   startGame(nickname.trim());
-  // }
 
   return (
     <div
@@ -68,29 +81,29 @@ export const OverlayWelcome: React.FC<OverlayWelcomeProps> = ({
       {isPreloading ? (
         <p>Cargando modelo...</p>
       ) : isFinishGame ? (
-        // JUEGO FINALIZADO: mostramos scoreboard y botón de reiniciar
+        // Si el juego ha finalizado
         <>
           <h2>¡El juego ha finalizado!</h2>
           <Scoreboard players={players} />
-          <button
-            style={{
-              fontSize: "18px",
-              padding: "10px 20px",
-              cursor: "pointer",
-              marginTop: "20px",
-            }}
-            onClick={restartGame}
-          >
-            Reiniciar
-          </button>
+          {isOwner ? (
+            <button
+              style={{ fontSize: "18px", padding: "10px 20px", marginTop: "20px" }}
+              onClick={restartGame}
+            >
+              Reiniciar (sólo dueño)
+            </button>
+          ) : (
+            <p>Esperando a que el dueño reinicie...</p>
+          )}
         </>
-      ) : (
-        // OVERLAY DE BIENVENIDA (antes de iniciar juego)
+      ) : !userJoined ? (
+        // Aún NO nos unimos a la sala: pedir nickname
         <>
-          {/* Campo para nickname */}
+          <h2>Ingresa a la sala</h2>
           <input
             type="text"
             placeholder="Ingresa tu nickname"
+            value={nicknameLocal}
             onChange={(e) => setNicknameLocal(e.target.value)}
             style={{
               fontSize: "18px",
@@ -102,31 +115,35 @@ export const OverlayWelcome: React.FC<OverlayWelcomeProps> = ({
               textAlign: "center",
             }}
           />
-          <h3
-            style={{
-              textAlign: "center",
-              maxWidth: "500px",
-              margin: "0 auto",
-            }}
+          <button
+            style={{ fontSize: "18px", padding: "10px 20px", cursor: "pointer" }}
+            onClick={() => joinRoom(nicknameLocal)}
           >
-            Un demo multijugador donde cada toque cuenta. Trabaja en equipo o
-            compite para estallar los globos y ganar puntos.
-          </h3>
-          {/* Botón para iniciar (si decides que cualquiera puede iniciar) */}
-          <img
-            src="/DESKTOP/BOTON_COMENZAR.png"
-            alt="Botón comenzar"
-            style={{
-              position: "absolute",
-              bottom: "4%",
-              width: "200px",
-              height: "auto",
-              cursor: "pointer",
-            }}
-            onClick={() => startGame("")}
-          />
+            Ingresar
+          </button>
         </>
-      )}
+      ) : // Aquí userJoined = true, pero el juego no ha iniciado
+      !isStarted ? (
+        isOwner ? (
+          // Eres el dueño y el juego NO está iniciado
+          <>
+            <h2>¡Bienvenido, {nicknameLocal}!</h2>
+            <p>Eres el dueño de la sala</p>
+            <button
+              style={{ fontSize: "18px", padding: "10px 20px", cursor: "pointer" }}
+              onClick={startGame}
+            >
+              Comenzar juego
+            </button>
+          </>
+        ) : (
+          // No eres el dueño y el juego NO está iniciado
+          <>
+            <h2>¡Bienvenido, {nicknameLocal}!</h2>
+            <p>Esperando a que el dueño inicie el juego...</p>
+          </>
+        )
+      ) : null}
     </div>
   );
 };

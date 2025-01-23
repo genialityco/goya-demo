@@ -1,19 +1,49 @@
 import * as tf from "@tensorflow/tfjs";
-import "@tensorflow/tfjs-backend-webgl"; // O "@tensorflow/tfjs-backend-wasm" si usas WASM
+import "@tensorflow/tfjs-backend-webgl";
+import { BrowserRouter as Router, Route, Routes, Link } from "react-router-dom";
 import { BallInteractionGame } from "./components/BallInteractionGame/BallInteractionGame";
+import "./App.css";
+import PoseDetector from "./components/PoseDetector_Camera";
+import BoneInspector from "./components/BoneInspector";
 
 const setupBackend = async () => {
-  await tf.setBackend("webgl"); // Cambia a "wasm" o "cpu" si es necesario
+  await tf.setBackend("webgl");
   await tf.ready();
 };
 
 setupBackend().catch(console.error);
 
+const Home = () => (
+  <div className="home">
+    <h1 className="title">Experiencias Interactivas</h1>
+    <p className="subtitle">
+      Explora diferentes demos interactivos construidos con tecnologías
+      modernas.
+    </p>
+    <nav className="nav">
+      <Link to="/demo1" className="link">
+        Juego de Interacción con Pelotas
+      </Link>
+      <Link to="/demo2" className="link">
+        Inspector
+      </Link>
+      <Link to="/demo3" className="link">
+        Model 3D
+      </Link>
+    </nav>
+  </div>
+);
+
 const App = () => {
   return (
-    <div>
-      <BallInteractionGame />
-    </div>
+    <Router>
+      <Routes>
+        <Route path="/" element={<Home />} />
+        <Route path="/demo1" element={<BallInteractionGame />} />
+        <Route path="/demo2" element={<BoneInspector />} />
+        <Route path="/demo3" element={<PoseDetector />} />
+      </Routes>
+    </Router>
   );
 };
 

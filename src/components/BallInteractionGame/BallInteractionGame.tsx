@@ -2,54 +2,64 @@ import React from "react";
 import { useMultiplayerGame } from "./useMultiplayerGame";
 import { Scoreboard } from "./Scoreboard";
 import { OverlayWelcome } from "./OverlayWelcome";
-import "./BallInteractionGame.css"; // Importa la hoja de estilos
-
-const ROOM_ID = "miSala";
+import "./BallInteractionGame.css";
 
 export const BallInteractionGame: React.FC = () => {
   const {
+    // Estados
     isPreloading,
     isStarted,
-    players,
-    canvasRef,
-    startGameWithNickname,
-    restartGame,
-    explosion,
     isFinishGame,
-    setNicknameLocal
-  } = useMultiplayerGame();
+    userJoined,
+    isOwner,
+    players,
+    explosion,
+    userStartLocalGame,
 
-  /**
-   * Esta función la pasamos al OverlayWelcome. Recibe el nickname
-   * y llama a la lógica de "startGameWithNickname".
-   */
-  const handleStartGame = (nickname: string) => {
-    // Aquí decides si este jugador puede iniciar la partida:
-    // Por ejemplo, siempre lo dejas iniciar.
-    startGameWithNickname(nickname);
-  };
+    // Refs
+    canvasRef,
+
+    // Métodos
+    joinRoom,
+    startGame,
+    restartGame,
+
+    // Nickname
+    nicknameLocal,
+    setNicknameLocal,
+  } = useMultiplayerGame();
 
   return (
     <div className="game-container">
-      {/* Overlay de bienvenida/carga */}
+      {/* Overlay: controla la lógica de ingresar, iniciar juego, etc. */}
       <OverlayWelcome
         isPreloading={isPreloading}
         isStarted={isStarted}
-        roomId={ROOM_ID}
-        startGame={handleStartGame}
         isFinishGame={isFinishGame}
-        restartGame={restartGame}
+        userJoined={userJoined}
+        isOwner={isOwner}
         players={players}
+        joinRoom={joinRoom}
+        startGame={startGame}
+        restartGame={restartGame}
+        nicknameLocal={nicknameLocal}
         setNicknameLocal={setNicknameLocal}
+        userStartLocalGame={userStartLocalGame}
       />
 
+      {/* Si el juego está activo y no finalizó, mostramos scoreboard */}
       {isStarted && !isFinishGame && <Scoreboard players={players} />}
 
-      {/* Canvas del juego */}
+      {/* Canvas principal */}
       <canvas ref={canvasRef} className="game-canvas" />
 
-      {/* Botón para reiniciar */}
-      {isStarted && (
+      {/* Botón de reiniciar, sólo visible si:
+          - el juego está iniciado,
+          - no ha terminado,
+          - y si eres el dueño. 
+          (Opcional, depende de tu preferencia de UI)
+       */}
+      {isStarted && !isFinishGame && isOwner && (
         <img
           src="/DESKTOP/BOTOM-RESTART.png"
           alt="Botón reiniciar"
@@ -66,7 +76,7 @@ export const BallInteractionGame: React.FC = () => {
         />
       )}
 
-      {/* Aquí mostramos la explosión si está visible */}
+      {/* Explosión */}
       {explosion && explosion.visible && (
         <img
           src="/gifs/3iCN.gif"
