@@ -211,7 +211,11 @@ const PoseDetector = () => {
         rotationBrazoI.multiply(mySmallOffsetQuaternion);
 
         // Asigna la rotación resultante
-        brazoI.quaternion.copy(rotationBrazoI);
+        const smootthedQueternionBrazoI = new THREE.Quaternion()
+          .copy(rotationBrazoI)
+          .slerp(rotationBrazoI, 0.1);
+
+        brazoI.quaternion.copy(smootthedQueternionBrazoI);
 
         // Calcular rotación para el antebrazo izquierdo
         const rotationAntebrazoI = calculateQuaternion(
@@ -246,7 +250,11 @@ const PoseDetector = () => {
 
         rotationBrazoD.multiply(mySmallOffsetQuaternion);
 
-        brazoD.quaternion.copy(rotationBrazoD);
+        const smootthedQueternionBrazoD = new THREE.Quaternion()
+          .copy(rotationBrazoD)
+          .slerp(rotationBrazoD, 0.9);
+
+        brazoD.quaternion.copy(smootthedQueternionBrazoD);
 
         // Calcular rotación para el antebrazo derecho
         const rotationAntebrazoD = calculateQuaternion(
