@@ -45,6 +45,9 @@ export function useMultiplayerGame() {
   // Estado para ver si el usuario local ya inició su juego (su cámara, detecciones, etc.)
   const [userStartLocalGame, setUserStartLocalGame] = useState(false);
 
+  // Audio de explosión
+  const popAudioRef = useRef<HTMLAudioElement | null>(null);
+
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const ctxRef = useRef<CanvasRenderingContext2D | null>(null);
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -54,6 +57,11 @@ export function useMultiplayerGame() {
   // Imágenes para dibujar en el canvas
   const balloonImageRef = useRef<HTMLImageElement | null>(null);
   const frameImageRef = useRef<HTMLImageElement | null>(null);
+
+  // Estado para manejar los popups de puntuación
+  const [scorePopups, setScorePopups] = useState<
+    { id: string; x: number; y: number; visible: boolean }[]
+  >([]);
 
   // Estado para manejar la explosión en la UI
   const [explosion, setExplosion] = useState<{
@@ -74,6 +82,8 @@ export function useMultiplayerGame() {
       ? "/MOBILE/BALLOON_INTERNA_MOBILE.png"
       : "/DESKTOP/FONDO_BALLOON_INTERNA.png";
     frameImageRef.current = frameImg;
+
+    popAudioRef.current = new Audio("/audios/medium-explosion-40472.mp3");
   }, []);
 
   // Mantén en sync el “latestBallsRef”
@@ -134,23 +144,23 @@ export function useMultiplayerGame() {
     // Escuchamos cambios en la lista de jugadores
     const playersRef = ref(db, `rooms/${ROOM_ID}/players`);
     const roomRef = ref(db, `rooms/${ROOM_ID}`);
-  
+
     onValue(playersRef, async (snapshot) => {
       const playersData = snapshot.val() || {};
       const playerIds = Object.keys(playersData);
-  
+
       // Obtenemos la sala para ver quién es el owner actual
       const roomSnap = await get(roomRef);
       if (!roomSnap.exists()) return; // si la sala no existe, salir
       const roomData = roomSnap.val();
       const currentOwner = roomData.ownerId || "";
-  
+
       // Si no hay jugadores, no hay owner
       if (playerIds.length === 0) {
         await update(roomRef, { ownerId: "" });
         return;
       }
-  
+
       // Verificar si el dueño actual sigue existiendo
       const ownerStillInGame = playerIds.includes(currentOwner);
       if (!ownerStillInGame) {
@@ -160,12 +170,11 @@ export function useMultiplayerGame() {
         await update(roomRef, { ownerId: newOwnerId });
       }
     });
-  
+
     return () => {
       off(playersRef);
     };
   }, []);
-  
 
   /**
    * Pre-carga el modelo de pose para no demorar al iniciar el juego.
@@ -367,7 +376,7 @@ export function useMultiplayerGame() {
 
         // Coordenadas del globo en el canvas
         const { centerX, centerY } = getBallCoordinates(ball, canvas);
-        const balloonRadius = ball.radius * 2; // Ajusta a tu gusto
+        const balloonRadius = ball.radius * 1; // Ajusta a tu gusto
 
         // Distancia entre la mano y el centro del globo
         const dx = (1 - landmark.x) * canvas.width - centerX;
@@ -384,12 +393,21 @@ export function useMultiplayerGame() {
           // Sumar puntuación
           runTransaction(
             ref(db, `rooms/${ROOM_ID}/players/${localPlayerId}/score`),
-            (currentScore) => (currentScore || 0) + 1
+            (currentScore) => (currentScore || 0) + 100
           ).catch((error) => {
             console.error("Error incrementando score:", error);
           });
           // Explosión visual
           showExplosion(centerX, centerY);
+
+          // Mostrar popup de +100
+          showScorePopup(centerX, centerY);
+
+          // Reproducir el sonido (si se cargó correctamente)
+          if (popAudioRef.current) {
+            popAudioRef.current.currentTime = 0;
+            popAudioRef.current.play().catch((err) => console.error(err));
+          }
         }
       });
     });
@@ -490,6 +508,30 @@ export function useMultiplayerGame() {
   }
 
   /**
+   * Función para mostrar el popup de +100
+   */
+  function showScorePopup(x: number, y: number) {
+    // Generamos un ID único
+    const popupId = Math.random().toString(36).substr(2, 9);
+
+    // Creamos la data del popup
+    const newPopup = {
+      id: popupId,
+      x,
+      y,
+      visible: true,
+    };
+
+    // Agregamos al state
+    setScorePopups((prev) => [...prev, newPopup]);
+
+    // Quitarlo tras 1 segundo (o el tiempo que quieras)
+    setTimeout(() => {
+      setScorePopups((prev) => prev.filter((p) => p.id !== popupId));
+    }, 1000);
+  }
+
+  /**
    * Calcular coordenadas absolutas del globo
    */
   function getBallCoordinates(ball: any, canvas: HTMLCanvasElement) {
@@ -505,18 +547,18 @@ export function useMultiplayerGame() {
   function generateBalls(count: number) {
     const balls = [];
     const maxAttempts = 100;
-  
+
     // Límites en coordenadas RELATIVAS (entre 0 y 1)
     // Ajústalos según el espacio que quieras “reservar” para el marco
     const xMin = 0.15;
     const xMax = 0.8;
     const yMin = 0.15;
     const yMax = 0.8;
-  
+
     for (let i = 0; i < count; i++) {
       let valid = false;
       let attempts = 0;
-  
+
       const newBall = {
         id: i,
         relativeX: 0,
@@ -524,29 +566,27 @@ export function useMultiplayerGame() {
         radius: 30,
         active: true,
       };
-  
+
       while (!valid && attempts < maxAttempts) {
         // Generamos una posición aleatoria SÓLO dentro del bounding box
         const rx = xMin + Math.random() * (xMax - xMin);
         const ry = yMin + Math.random() * (yMax - yMin);
-  
+
         newBall.relativeX = rx;
         newBall.relativeY = ry;
-  
+
         // Verificamos que no se superponga con otras pelotas ya colocadas
         valid = balls.every((ball) => {
-          const dx =
-            (ball.relativeX - newBall.relativeX) * window.innerWidth;
-          const dy =
-            (ball.relativeY - newBall.relativeY) * window.innerHeight;
+          const dx = (ball.relativeX - newBall.relativeX) * window.innerWidth;
+          const dy = (ball.relativeY - newBall.relativeY) * window.innerHeight;
           const distance = Math.sqrt(dx * dx + dy * dy);
-  
+
           return distance > (ball.radius + newBall.radius) * 2;
         });
-  
+
         attempts++;
       }
-  
+
       if (valid) {
         balls.push(newBall);
       } else {
@@ -555,10 +595,9 @@ export function useMultiplayerGame() {
         );
       }
     }
-  
+
     return balls;
   }
-  
 
   return {
     // Estados de precarga, unión a sala, y juego
@@ -584,6 +623,7 @@ export function useMultiplayerGame() {
     explosion,
     nicknameLocal,
     setNicknameLocal,
+    scorePopups,
 
     // Saber si local ya inició su cámara
     userStartLocalGame,

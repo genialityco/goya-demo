@@ -23,6 +23,7 @@ export const BallInteractionGame: React.FC = () => {
     joinRoom,
     startGame,
     restartGame,
+    scorePopups,
 
     // Nickname
     nicknameLocal,
@@ -90,6 +91,23 @@ export const BallInteractionGame: React.FC = () => {
             pointerEvents: "none",
           }}
         />
+      )}
+      {scorePopups.map(
+        (popup) =>
+          popup.visible && (
+            <div
+              key={popup.id}
+              style={{
+                position: "absolute",
+                left: popup.x,
+                top: popup.y,
+                transform: "translate(-50%, -50%)",
+              }}
+              className="popup-score"
+            >
+              +100
+            </div>
+          )
       )}
     </div>
   );

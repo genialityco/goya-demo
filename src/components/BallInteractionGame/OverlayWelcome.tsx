@@ -1,5 +1,6 @@
 import React from "react";
 import { Scoreboard } from "./Scoreboard";
+import { WaitingRoom } from "./WaitingRoom";
 
 interface Player {
   name: string;
@@ -86,12 +87,22 @@ export const OverlayWelcome: React.FC<OverlayWelcomeProps> = ({
           <h2>¡El juego ha finalizado!</h2>
           <Scoreboard players={players} />
           {isOwner ? (
-            <button
-              style={{ fontSize: "18px", padding: "10px 20px", marginTop: "20px" }}
+            // <button
+            //   style={{
+            //     fontSize: "18px",
+            //     padding: "10px 20px",
+            //     marginTop: "20px",
+            //   }}
+            //   onClick={restartGame}
+            // >
+            //   Reiniciar (sólo dueño)
+            // </button>
+            <img
+              style={{ width: "250px" }}
               onClick={restartGame}
-            >
-              Reiniciar (sólo dueño)
-            </button>
+              className="restart-button"
+              src="/DESKTOP/BOTOM-RESTART.png"
+            />
           ) : (
             <p>Esperando a que el dueño reinicie...</p>
           )}
@@ -115,12 +126,22 @@ export const OverlayWelcome: React.FC<OverlayWelcomeProps> = ({
               textAlign: "center",
             }}
           />
-          <button
-            style={{ fontSize: "18px", padding: "10px 20px", cursor: "pointer" }}
+          {/* <button
+            style={{
+              fontSize: "18px",
+              padding: "10px 20px",
+              cursor: "pointer",
+            }}
             onClick={() => joinRoom(nicknameLocal)}
           >
             Ingresar
-          </button>
+          </button> */}
+          <img
+            style={{ width: "250px" }}
+            onClick={() => joinRoom(nicknameLocal)}
+            className="restart-button"
+            src="/DESKTOP/BOTON_COMENZAR.png"
+          />
         </>
       ) : // Aquí userJoined = true, pero el juego no ha iniciado
       !isStarted ? (
@@ -129,12 +150,21 @@ export const OverlayWelcome: React.FC<OverlayWelcomeProps> = ({
           <>
             <h2>¡Bienvenido, {nicknameLocal}!</h2>
             <p>Eres el dueño de la sala</p>
-            <button
-              style={{ fontSize: "18px", padding: "10px 20px", cursor: "pointer" }}
+            {/* AQUÍ mostras lista de quienes están conectados */}
+            <WaitingRoom
+              players={players}
+              isOwner={isOwner}
+              nicknameLocal={nicknameLocal}
+              isMobile={isMobile}
+              startGame={startGame}
+            />
+
+            <img
+              style={{ width: "250px" }}
               onClick={startGame}
-            >
-              Comenzar juego
-            </button>
+              className="restart-button"
+              src="/DESKTOP/BOTON_COMENZAR.png"
+            />
           </>
         ) : (
           // No eres el dueño y el juego NO está iniciado
