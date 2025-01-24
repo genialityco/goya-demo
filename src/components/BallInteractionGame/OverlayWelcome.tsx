@@ -8,7 +8,6 @@ interface Player {
 }
 
 interface OverlayWelcomeProps {
-  // De tu custom hook
   isPreloading: boolean;
   isStarted: boolean;
   isFinishGame: boolean;
@@ -17,16 +16,13 @@ interface OverlayWelcomeProps {
 
   players: { [key: string]: Player };
 
-  // Métodos
   joinRoom: (nickname: string) => void;
   startGame: () => Promise<void>;
   restartGame: () => Promise<void>;
 
-  // Para el input de nickname
   nicknameLocal: string;
   setNicknameLocal: React.Dispatch<React.SetStateAction<string>>;
 
-  // Saber si local ya inició cámara, etc.
   userStartLocalGame: boolean;
 }
 
@@ -44,16 +40,12 @@ export const OverlayWelcome: React.FC<OverlayWelcomeProps> = ({
   setNicknameLocal,
   userStartLocalGame,
 }) => {
-  // Detecta si es móvil o escritorio
   const isMobile = window.innerWidth <= 768;
 
-  // Selecciona la imagen de fondo
   const backgroundImage = isMobile
     ? "/MOBILE/BALLOON_HOME_MOBILE.png"
     : "/DESKTOP/FONDO_DSKTOP.png";
 
-  // Lógica de visibilidad del overlay:
-  // 1) Si el juego está en curso y no ha finalizado y el usuario ya “empezó local”, ocultar overlay
   if (isStarted && !isFinishGame && userStartLocalGame) {
     return null;
   }
@@ -82,23 +74,12 @@ export const OverlayWelcome: React.FC<OverlayWelcomeProps> = ({
       {isPreloading ? (
         <p>Cargando modelo...</p>
       ) : isFinishGame ? (
-        // Si el juego ha finalizado
         <>
           <h2>¡El juego ha finalizado!</h2>
           <Scoreboard players={players} />
           {isOwner ? (
-            // <button
-            //   style={{
-            //     fontSize: "18px",
-            //     padding: "10px 20px",
-            //     marginTop: "20px",
-            //   }}
-            //   onClick={restartGame}
-            // >
-            //   Reiniciar (sólo dueño)
-            // </button>
             <img
-              style={{ width: "250px" }}
+              style={{ width: "250px", height: "80px" }}
               onClick={restartGame}
               className="restart-button"
               src="/DESKTOP/BOTOM-RESTART.png"
@@ -108,7 +89,6 @@ export const OverlayWelcome: React.FC<OverlayWelcomeProps> = ({
           )}
         </>
       ) : !userJoined ? (
-        // Aún NO nos unimos a la sala: pedir nickname
         <>
           <h2>Ingresa a la sala</h2>
           <input
@@ -119,38 +99,43 @@ export const OverlayWelcome: React.FC<OverlayWelcomeProps> = ({
             style={{
               fontSize: "18px",
               padding: "10px",
-              marginTop: "20px",
-              marginBottom: "20px",
               borderRadius: "8px",
               border: "none",
               textAlign: "center",
             }}
           />
-          {/* <button
+          <p
             style={{
-              fontSize: "18px",
-              padding: "10px 20px",
-              cursor: "pointer",
+              margin: "5px 0",
+              fontSize: "15px",
+              width: isMobile ? "80%" : "50%",
             }}
-            onClick={() => joinRoom(nicknameLocal)}
           >
-            Ingresar
-          </button> */}
+            <strong>Instrucciones:</strong> Ingresa tu nombre y haz clic en
+            "Comenzar" para unirte al juego.
+          </p>
           <img
-            style={{ width: "250px" }}
+            style={{ width: "250px", height: "80px" }}
             onClick={() => joinRoom(nicknameLocal)}
             className="restart-button"
             src="/DESKTOP/BOTON_COMENZAR.png"
           />
         </>
-      ) : // Aquí userJoined = true, pero el juego no ha iniciado
-      !isStarted ? (
+      ) : !isStarted ? (
         isOwner ? (
-          // Eres el dueño y el juego NO está iniciado
           <>
             <h2>¡Bienvenido, {nicknameLocal}!</h2>
             <p>Eres el dueño de la sala</p>
-            {/* AQUÍ mostras lista de quienes están conectados */}
+            <p
+              style={{
+                margin: "5px 0",
+                fontSize: "18px",
+                width: isMobile ? "80%" : "50%",
+              }}
+            >
+              <strong>Instrucciones:</strong> Comienza el juego cuando todos los
+              jugadores hayan ingresado y estén listos.
+            </p>
             <WaitingRoom
               players={players}
               isOwner={isOwner}
@@ -158,7 +143,6 @@ export const OverlayWelcome: React.FC<OverlayWelcomeProps> = ({
               isMobile={isMobile}
               startGame={startGame}
             />
-
             <img
               style={{ width: "250px" }}
               onClick={startGame}
@@ -167,10 +151,31 @@ export const OverlayWelcome: React.FC<OverlayWelcomeProps> = ({
             />
           </>
         ) : (
-          // No eres el dueño y el juego NO está iniciado
           <>
             <h2>¡Bienvenido, {nicknameLocal}!</h2>
-            <p>Esperando a que el dueño inicie el juego...</p>
+            <p
+              style={{
+                fontSize: "20px",
+              }}
+            >
+              <strong>Esperando a que el dueño inicie el juego...</strong>
+            </p>
+            <p
+              style={{
+                margin: "10px 0",
+                fontSize: "12px",
+                width: isMobile ? "80%" : "50%",
+              }}
+            >
+              Gen.Ballon es un juego demo en el que, trabajando en equipo,
+              capturas globos usando tus manos para interactuar con la
+              experiencia. Todas las personas que desees pueden conectarse al
+              juego, y juntos podrán alcanzar el objetivo. ¿Cómo funciona? El
+              juego utiliza la cámara de tu dispositivo para detectar tus manos
+              y rastrear sus movimientos, integrándolos en la experiencia. Así,
+              puedes disfrutar sin complicaciones de un mundo de realidad
+              aumentada lleno de emociones
+            </p>
           </>
         )
       ) : null}

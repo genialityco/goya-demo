@@ -17,18 +17,18 @@ const Home = () => (
   <div className="home">
     <h1 className="title">Experiencias Interactivas</h1>
     <p className="subtitle">
-      Explora diferentes demos interactivos construidos con tecnologías
-      modernas.
+      Explora diferentes demos de geniality construidos con tecnologías
+      interactivas.
     </p>
     <nav className="nav">
       <Link to="/demo1" className="link">
-        Juego de Interacción con Pelotas
-      </Link>
-      <Link to="/demo2" className="link">
-        Inspector
+        Juego multijugador - Detección manos con cámara
       </Link>
       <Link to="/demo3" className="link">
-        Model 3D
+        Avatar 3D con detección de movimiento
+      </Link>
+      <Link to="/demo2" className="link">
+        Inspector de animación(rigging) modelo 3D
       </Link>
     </nav>
   </div>
