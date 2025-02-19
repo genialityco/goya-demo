@@ -13,7 +13,6 @@ interface OverlayWelcomeProps {
   isFinishGame: boolean;
   userJoined: boolean;
   isOwner: boolean;
-
   players: { [key: string]: Player };
 
   joinRoom: (nickname: string) => void;
@@ -24,6 +23,9 @@ interface OverlayWelcomeProps {
   setNicknameLocal: React.Dispatch<React.SetStateAction<string>>;
 
   userStartLocalGame: boolean;
+
+  // <-- Asegúrate de agregar la función becomeOwner aquí:
+  becomeOwner: () => Promise<void>;
 }
 
 export const OverlayWelcome: React.FC<OverlayWelcomeProps> = ({
@@ -39,6 +41,7 @@ export const OverlayWelcome: React.FC<OverlayWelcomeProps> = ({
   nicknameLocal,
   setNicknameLocal,
   userStartLocalGame,
+  becomeOwner, // <-- Aquí la recibimos por props
 }) => {
   const isMobile = window.innerWidth <= 768;
 
@@ -176,6 +179,20 @@ export const OverlayWelcome: React.FC<OverlayWelcomeProps> = ({
               puedes disfrutar sin complicaciones de un mundo de realidad
               aumentada lleno de emociones
             </p>
+
+            {/* Aquí agregamos el botón para solicitar ser dueño */}
+            <button
+              onClick={becomeOwner}
+              style={{
+                fontSize: "16px",
+                padding: "8px 12px",
+                marginTop: "16px",
+                cursor: "pointer",
+                borderRadius: "8px",
+              }}
+            >
+              Solicitar ser dueño
+            </button>
           </>
         )
       ) : null}

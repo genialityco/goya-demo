@@ -177,6 +177,21 @@ export function useMultiplayerGame() {
   }, []);
 
   /**
+   * Pedir ser dueño
+   */
+  async function becomeOwner() {
+    try {
+      const roomRef = ref(db, `rooms/${ROOM_ID}`);
+      await update(roomRef, {
+        ownerId: localPlayerId,
+      });
+    } catch (error) {
+      console.error("Error al convertirte en dueño:", error);
+    }
+  }
+
+
+  /**
    * Pre-carga el modelo de pose para no demorar al iniciar el juego.
    */
   async function preloadModel() {
@@ -606,6 +621,7 @@ export function useMultiplayerGame() {
     isFinishGame,
     userJoined,
     isOwner,
+    becomeOwner,
 
     // Data
     players,

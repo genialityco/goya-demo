@@ -15,6 +15,7 @@ export const BallInteractionGame: React.FC = () => {
     players,
     explosion,
     userStartLocalGame,
+    becomeOwner,
 
     // Refs
     canvasRef,
@@ -46,6 +47,7 @@ export const BallInteractionGame: React.FC = () => {
         nicknameLocal={nicknameLocal}
         setNicknameLocal={setNicknameLocal}
         userStartLocalGame={userStartLocalGame}
+        becomeOwner={becomeOwner}
       />
 
       {/* Si el juego está activo y no finalizó, mostramos scoreboard */}
