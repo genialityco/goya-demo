@@ -88,7 +88,21 @@ export const OverlayWelcome: React.FC<OverlayWelcomeProps> = ({
               src="/DESKTOP/BOTOM-RESTART.png"
             />
           ) : (
+            <>
             <p>Esperando a que el dueño reinicie...</p>
+            <button
+        onClick={becomeOwner}
+        style={{
+          fontSize: "16px",
+          padding: "8px 12px",
+          marginTop: "16px",
+          cursor: "pointer",
+          borderRadius: "8px",
+        }}
+      >
+        Pedir ser líder
+      </button>
+      </>
           )}
         </>
       ) : !userJoined ? (
