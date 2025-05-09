@@ -233,7 +233,7 @@ async function registerPlayerSkeleton() {
     // Ya existe la sala: si todavía NO tiene `balls`, las agregamos
     const data = roomSnap.val();
     if (!data.balls || Object.keys(data.balls).length === 0) {
-      const initialBalls = generateBalls(10).reduce((o, b) => {
+      const initialBalls = generateBalls(20).reduce((o, b) => {
         o[b.id] = b;
         return o;
       }, {} as Record<string, any>);
@@ -348,7 +348,7 @@ async function registerPlayerSkeleton() {
         playersData[playerId].score = 0;
       });
 
-      const newBalls = generateBalls(10);
+      const newBalls = generateBalls(20);
       const newBallsObj: Record<string, any> = {};
       newBalls.forEach((b) => {
         newBallsObj[b.id] = b;
