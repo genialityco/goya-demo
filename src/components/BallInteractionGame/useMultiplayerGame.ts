@@ -73,7 +73,7 @@ export function useMultiplayerGame() {
   /* Carga imágenes requeridas */
   useEffect(() => {
     const img = new Image();
-    img.src = "/images/BOMBA.png";
+    img.src = "/images/EMPANADA.png";
     balloonImageRef.current = img;
 
     const frameImg = new Image();
@@ -209,51 +209,50 @@ export function useMultiplayerGame() {
    * No le asigna nickname todavía.
    * También se asegura de crear las pelotas si no existen.
    */
-  async function registerPlayerSkeleton() {
-    const playerPath = `rooms/${ROOM_ID}/players/${localPlayerId}`;
-    const playerRef = ref(db, playerPath);
+async function registerPlayerSkeleton() {
+  const roomRef = ref(db, `rooms/${ROOM_ID}`);
+  const roomSnap = await get(roomRef);
 
-    // Nombre temporal
-    await set(playerRef, {
-      name: `Player-${localPlayerId.slice(0, 5)}`,
-      score: 0,
+  // Si no existe la sala, la creamos completa
+  if (!roomSnap.exists()) {
+    const initialBalls = generateBalls(20).reduce((o, b) => {
+      o[b.id] = b;
+      return o;
+    }, {} as Record<string, any>);
+
+    await set(roomRef, {
+      ownerId: "",
+      isStarted: false,
+      players: {
+        [localPlayerId]: { name: `P-${localPlayerId.slice(0,5)}`, score: 0 }
+      },
+      balls: initialBalls,
     });
 
-    onDisconnect(playerRef).remove();
+  } else {
+    // Ya existe la sala: si todavía NO tiene `balls`, las agregamos
+    const data = roomSnap.val();
+    if (!data.balls || Object.keys(data.balls).length === 0) {
+      const initialBalls = generateBalls(10).reduce((o, b) => {
+        o[b.id] = b;
+        return o;
+      }, {} as Record<string, any>);
 
-    const roomRef = ref(db, `rooms/${ROOM_ID}`);
-    const roomSnap = await get(roomRef);
-    if (!roomSnap.exists()) {
-      // Si la sala no existe o no tiene datos, la creamos
-      const initialBalls = generateBalls(10);
-      const ballsObject: any = {};
-      initialBalls.forEach((b) => {
-        ballsObject[b.id] = b;
-      });
+      await update(roomRef, { balls: initialBalls });
+    }
 
-      // Seteamos un "ownerId" en blanco
-      await set(roomRef, {
-        ownerId: "",
-        isStarted: false,
-        players: {
-          [localPlayerId]: {
-            name: `Player-${localPlayerId.slice(0, 5)}`,
-            score: 0,
-          },
-        },
-        balls: ballsObject,
-      });
-    } else {
-      // La sala ya existe; revisamos si tiene dueño:
-      const roomData = roomSnap.val();
-      if (!roomData.ownerId) {
-        // Si no hay dueño, nos convertimos en el dueño
-        await update(roomRef, {
-          ownerId: localPlayerId,
-        });
-      }
+    // Si no hay owner, te conviertes
+    if (!data.ownerId) {
+      await update(roomRef, { ownerId: localPlayerId });
     }
   }
+
+  // Finalmente registrarte como jugador skeleton…
+  const playerRef = ref(db, `rooms/${ROOM_ID}/players/${localPlayerId}`);
+  await set(playerRef, { name: `P-${localPlayerId.slice(0,5)}`, score: 0 });
+  onDisconnect(playerRef).remove();
+}
+
 
   /**
    * Acción al dar clic en “Ingresar” con nickname:
@@ -578,7 +577,7 @@ export function useMultiplayerGame() {
         id: i,
         relativeX: 0,
         relativeY: 0,
-        radius: 30,
+        radius: 10,
         active: true,
       };
 
