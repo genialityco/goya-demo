@@ -48,16 +48,24 @@ export const OverlayWelcome: React.FC<OverlayWelcomeProps> = ({
         flexDirection: "column",
         justifyContent: "center",
         alignItems: "center",
-        fontSize: "24px",
+        fontSize: isMobile ? "18px" : "24px",
+        padding: isMobile ? "16px" : "32px",
       }}
     >
       {isPreloading ? (
-        <p>Cargando modelo...</p>
+        <p style={{ fontSize: isMobile ? "16px" : "22px" }}>Cargando modelo...</p>
       ) : isFinishGame ? (
         <>
-          <h2>¡El juego ha finalizado!</h2>
+          <h2 style={{ fontSize: isMobile ? "22px" : "32px", margin: isMobile ? "12px 0" : "24px 0" }}>
+            ¡El juego ha finalizado!
+          </h2>
           <img
-            style={{ width: "250px", height: "80px", cursor: "pointer" }}
+            style={{
+              width: isMobile ? "180px" : "250px",
+              height: isMobile ? "56px" : "80px",
+              cursor: "pointer",
+              marginTop: isMobile ? "10px" : "20px",
+            }}
             onClick={restartGame}
             className="restart-button"
             src="/goya/BOTON_RESTART.png"
@@ -66,34 +74,45 @@ export const OverlayWelcome: React.FC<OverlayWelcomeProps> = ({
         </>
       ) : (
         <>
-          <h2>Ingresa tu nombre</h2>
+          <h2 style={{ fontSize: isMobile ? "22px" : "32px", margin: isMobile ? "12px 0" : "24px 0" }}>
+            Ingresa tu nombre
+          </h2>
           <input
             type="text"
             placeholder="Tu nombre"
             value={nicknameLocal}
             onChange={(e) => setNicknameLocal(e.target.value)}
             style={{
-              fontSize: "18px",
-              padding: "10px",
+              fontSize: isMobile ? "16px" : "18px",
+              padding: isMobile ? "8px" : "10px",
               borderRadius: "8px",
               border: "none",
               textAlign: "center",
-              marginBottom: "12px",
+              marginBottom: isMobile ? "10px" : "12px",
+              width: isMobile ? "80vw" : "320px",
+              maxWidth: "90vw",
             }}
           />
           <p
             style={{
-              margin: "5px 0",
-              fontSize: "15px",
-              width: isMobile ? "80%" : "50%",
+              margin: isMobile ? "8px 0" : "12px 0",
+              fontSize: isMobile ? "13px" : "15px",
+              width: isMobile ? "90vw" : "50%",
+              maxWidth: "500px",
               textAlign: "center",
+              lineHeight: 1.4,
             }}
           >
             <strong>Instrucciones:</strong> Usa tus manos frente a la cámara para
             explotar empaques en pantalla. Ganas puntos por cada empaque que toques.
           </p>
           <img
-            style={{ width: "250px", height: "80px", cursor: "pointer" }}
+            style={{
+              width: isMobile ? "180px" : "250px",
+              height: isMobile ? "56px" : "80px",
+              cursor: "pointer",
+              marginTop: isMobile ? "10px" : "20px",
+            }}
             onClick={startGame}
             className="restart-button"
             src="/goya/DESKTOP/BOTON.png"
