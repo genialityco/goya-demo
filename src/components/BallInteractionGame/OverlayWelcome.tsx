@@ -101,6 +101,13 @@ export const OverlayWelcome: React.FC<OverlayWelcomeProps> = ({
               maxWidth: "500px",
               textAlign: "center",
               lineHeight: 1.4,
+              background: "rgba(0,0,0,0.7)", // caja negra semitransparente
+              borderRadius: "12px",
+              padding: isMobile ? "10px 8px" : "16px 18px",
+              boxShadow: "0 2px 8px #0006",
+              color: "#fff",
+              fontWeight: 400,
+              marginBottom: isMobile ? "10px" : "18px",
             }}
           >
             <strong>Instrucciones:</strong> Usa tus manos frente a la cámara para
