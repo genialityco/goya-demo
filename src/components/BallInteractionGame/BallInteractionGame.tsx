@@ -1,85 +1,108 @@
 import React from "react";
-import { useMultiplayerGame } from "./useMultiplayerGame";
-import { Scoreboard } from "./Scoreboard";
+import { useSinglePlayerGame } from "./useMultiplayerGame";
 import { OverlayWelcome } from "./OverlayWelcome";
 import "./BallInteractionGame.css";
 
 export const BallInteractionGame: React.FC = () => {
   const {
     // Estados
-    isPreloading,
     isStarted,
     isFinishGame,
-    userJoined,
-    isOwner,
-    players,
-    explosion,
+    isPreloading,
     userStartLocalGame,
-    becomeOwner,
+    explosion,
+    scorePopups,
+    score,
+    balls,
 
     // Refs
     canvasRef,
 
     // Métodos
-    joinRoom,
     startGame,
-    restartGame,
-    scorePopups,
 
     // Nickname
     nicknameLocal,
     setNicknameLocal,
-  } = useMultiplayerGame();
+  } = useSinglePlayerGame();
+
+  const maxScore = Object.keys(balls).length * 100;
 
   return (
     <div className="game-container">
-      {/* Overlay: controla la lógica de ingresar, iniciar juego, etc. */}
+      {/* Overlay para ingresar nombre y comenzar */}
       <OverlayWelcome
         isPreloading={isPreloading}
         isStarted={isStarted}
         isFinishGame={isFinishGame}
-        userJoined={userJoined}
-        isOwner={isOwner}
-        players={players}
-        joinRoom={joinRoom}
+        userStartLocalGame={userStartLocalGame}
         startGame={startGame}
-        restartGame={restartGame}
+        restartGame={() => window.location.reload()}
         nicknameLocal={nicknameLocal}
         setNicknameLocal={setNicknameLocal}
-        userStartLocalGame={userStartLocalGame}
-        becomeOwner={becomeOwner}
       />
 
-      {/* Si el juego está activo y no finalizó, mostramos scoreboard */}
-      {isStarted && !isFinishGame && <Scoreboard players={players} />}
-
-      {/* Canvas principal */}
+      {/* Canvas de juego */}
       <canvas ref={canvasRef} className="game-canvas" />
 
-      {/* Botón de reiniciar, sólo visible si:
-          - el juego está iniciado,
-          - no ha terminado,
-          - y si eres el dueño. 
-          (Opcional, depende de tu preferencia de UI)
-       */}
-      {isStarted && !isFinishGame && isOwner && (
+      {/* Barra visual de progreso */}
+      <div
+        style={{
+          position: "absolute",
+          bottom: "10px",
+          left: "50%",
+          transform: "translateX(-50%)",
+          width: "80%",
+          height: "auto",
+        }}
+      >
+        <div
+          style={{
+            position: "relative",
+            left: "20%", // ajusta según el margen izquierdo deseado
+            width: "60%",
+            height: "80px", // ajusta según la altura real de la imagen
+            backgroundImage: 'url("/public/goya/BARRA/BARRA.png")',
+            backgroundSize: "cover",
+            backgroundRepeat: "no-repeat",
+            backgroundPosition: "center",
+          }}
+        >
+          <div
+            style={{
+              position: "absolute",
+              top: "52%",
+              left: "13%", // ajusta según el inicio visible del tubo rojo (plato)
+              transform: "translateY(-50%)",
+              height: "12px", // grosor visual del tubo rojo
+              backgroundColor: "#fff",
+              width: `${Math.min((score / maxScore) * 420, 420)}px`, // 420px = longitud visible del tubo
+              borderRadius: "6px",
+              transition: "width 0.3s ease-in-out",
+            }}
+          />
+        </div>
+      </div>
+
+      {/* Botón de reiniciar solo si juego activo */}
+      {isStarted && !isFinishGame && (
         <img
-          src="/DESKTOP/BOTOM-RESTART.png"
+          src="/goya/BOTON_RESTART.png"
           alt="Botón reiniciar"
           style={{
             position: "absolute",
-            left: "3%",
-            bottom: "5%",
+            left: "0%",
+            top: "0%",
             width: "200px",
             height: "auto",
             cursor: "pointer",
           }}
           className="restart-button"
-          onClick={restartGame}
+          onClick={() => window.location.reload()}
         />
       )}
 
-      {/* Explosión */}
+      {/* Explosión visual */}
       {explosion && explosion.visible && (
         <img
           src="/gifs/3iCN.gif"
@@ -94,6 +117,8 @@ export const BallInteractionGame: React.FC = () => {
           }}
         />
       )}
+
+      {/* Popups de puntuación */}
       {scorePopups.map(
         (popup) =>
           popup.visible && (
@@ -111,6 +136,9 @@ export const BallInteractionGame: React.FC = () => {
             </div>
           )
       )}
+
+      {/* Score en pantalla */}
+      {isStarted && <div className="score-display">Puntos: {score}</div>}
     </div>
   );
 };

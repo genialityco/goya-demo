@@ -1,57 +1,35 @@
 import React from "react";
-import { Scoreboard } from "./Scoreboard";
-import { WaitingRoom } from "./WaitingRoom";
-
-interface Player {
-  name: string;
-  score: number;
-}
 
 interface OverlayWelcomeProps {
   isPreloading: boolean;
   isStarted: boolean;
   isFinishGame: boolean;
-  userJoined: boolean;
-  isOwner: boolean;
-  players: { [key: string]: Player };
+  userStartLocalGame: boolean;
 
-  joinRoom: (nickname: string) => void;
-  startGame: () => Promise<void>;
-  restartGame: () => Promise<void>;
+  startGame: () => void;
+  restartGame: () => void;
 
   nicknameLocal: string;
   setNicknameLocal: React.Dispatch<React.SetStateAction<string>>;
-
-  userStartLocalGame: boolean;
-
-  // <-- Asegúrate de agregar la función becomeOwner aquí:
-  becomeOwner: () => Promise<void>;
 }
 
 export const OverlayWelcome: React.FC<OverlayWelcomeProps> = ({
   isPreloading,
   isStarted,
   isFinishGame,
-  userJoined,
-  isOwner,
-  players,
-  joinRoom,
   startGame,
   restartGame,
   nicknameLocal,
   setNicknameLocal,
   userStartLocalGame,
-  becomeOwner, // <-- Aquí la recibimos por props
 }) => {
   const isMobile = window.innerWidth <= 768;
 
   const backgroundImage = isMobile
-    ? "/MOBILE/BALLOON_HOME_MOBILE.png"
-    : "/DESKTOP/FONDO_DSKTOP.png";
+    ? "/goya/MOBILE/GOYA_HOME_MOBILE.png"
+    : "/goya/DESKTOP/FONDO_GOYA_HOME.png";
 
-  if (isStarted && !isFinishGame && userStartLocalGame) {
-    return null;
-  }
+  if (isStarted && !isFinishGame && userStartLocalGame) return null;
 
   return (
     <div
@@ -79,38 +57,19 @@ export const OverlayWelcome: React.FC<OverlayWelcomeProps> = ({
       ) : isFinishGame ? (
         <>
           <h2>¡El juego ha finalizado!</h2>
-          <Scoreboard players={players} />
-          {isOwner ? (
-            <img
-              style={{ width: "250px", height: "80px" }}
-              onClick={restartGame}
-              className="restart-button"
-              src="/DESKTOP/BOTOM-RESTART.png"
-            />
-          ) : (
-            <>
-            <p>Esperando a que el dueño reinicie...</p>
-            <button
-        onClick={becomeOwner}
-        style={{
-          fontSize: "16px",
-          padding: "8px 12px",
-          marginTop: "16px",
-          cursor: "pointer",
-          borderRadius: "8px",
-        }}
-      >
-        Pedir ser líder
-      </button>
-      </>
-          )}
+          <img
+            style={{ width: "250px", height: "80px", cursor: "pointer" }}
+            onClick={restartGame}
+            className="restart-button"
+            src="/goya/BOTON_RESTART.png"
+          />
         </>
-      ) : !userJoined ? (
+      ) : !isStarted ? (
         <>
-          <h2>Ingresa a la sala</h2>
+          <h2>Ingresa tu nombre</h2>
           <input
             type="text"
-            placeholder="Ingresa tu nickname"
+            placeholder="Tu nombre"
             value={nicknameLocal}
             onChange={(e) => setNicknameLocal(e.target.value)}
             style={{
@@ -119,6 +78,7 @@ export const OverlayWelcome: React.FC<OverlayWelcomeProps> = ({
               borderRadius: "8px",
               border: "none",
               textAlign: "center",
+              marginBottom: "12px",
             }}
           />
           <p
@@ -126,89 +86,19 @@ export const OverlayWelcome: React.FC<OverlayWelcomeProps> = ({
               margin: "5px 0",
               fontSize: "15px",
               width: isMobile ? "80%" : "50%",
+              textAlign: "center",
             }}
           >
-            <strong>Instrucciones:</strong> Ingresa tu nombre y haz clic en
-            "Comenzar" para unirte al juego.
+            <strong>Instrucciones:</strong> Usa tus manos frente a la cámara
+            para explotar globos en pantalla. Ganas puntos por cada globo que toques.
           </p>
           <img
-            style={{ width: "250px", height: "80px" }}
-            onClick={() => joinRoom(nicknameLocal)}
+            style={{ width: "250px", height: "80px", cursor: "pointer" }}
+            onClick={startGame}
             className="restart-button"
-            src="/DESKTOP/BOTON_COMENZAR.png"
+            src="/goya/DESKTOP/BOTON.png"
           />
         </>
-      ) : !isStarted ? (
-        isOwner ? (
-          <>
-            <h2>¡Bienvenido, {nicknameLocal}!</h2>
-            <p>Eres el dueño de la sala</p>
-            <p
-              style={{
-                margin: "5px 0",
-                fontSize: "18px",
-                width: isMobile ? "80%" : "50%",
-              }}
-            >
-              <strong>Instrucciones:</strong> Comienza el juego cuando todos los
-              jugadores hayan ingresado y estén listos.
-            </p>
-            <WaitingRoom
-              players={players}
-              isOwner={isOwner}
-              nicknameLocal={nicknameLocal}
-              isMobile={isMobile}
-              startGame={startGame}
-            />
-            <img
-              style={{ width: "250px" }}
-              onClick={startGame}
-              className="restart-button"
-              src="/DESKTOP/BOTON_COMENZAR.png"
-            />
-          </>
-        ) : (
-          <>
-            <h2>¡Bienvenido, {nicknameLocal}!</h2>
-            <p
-              style={{
-                fontSize: "20px",
-              }}
-            >
-              <strong>Esperando a que el dueño inicie el juego...</strong>
-            </p>
-            <p
-              style={{
-                margin: "10px 0",
-                fontSize: "12px",
-                width: isMobile ? "80%" : "50%",
-              }}
-            >
-              Gen.Ballon es un juego demo en el que, trabajando en equipo,
-              capturas globos usando tus manos para interactuar con la
-              experiencia. Todas las personas que desees pueden conectarse al
-              juego, y juntos podrán alcanzar el objetivo. ¿Cómo funciona? El
-              juego utiliza la cámara de tu dispositivo para detectar tus manos
-              y rastrear sus movimientos, integrándolos en la experiencia. Así,
-              puedes disfrutar sin complicaciones de un mundo de realidad
-              aumentada lleno de emociones
-            </p>
-
-            {/* Aquí agregamos el botón para solicitar ser dueño */}
-            <button
-              onClick={becomeOwner}
-              style={{
-                fontSize: "16px",
-                padding: "8px 12px",
-                marginTop: "16px",
-                cursor: "pointer",
-                borderRadius: "8px",
-              }}
-            >
-              Solicitar ser dueño
-            </button>
-          </>
-        )
       ) : null}
     </div>
   );
