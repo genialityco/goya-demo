@@ -49,7 +49,6 @@ export const OverlayWelcome: React.FC<OverlayWelcomeProps> = ({
         justifyContent: "center",
         alignItems: "center",
         fontSize: isMobile ? "18px" : "24px",
-        padding: isMobile ? "16px" : "32px",
       }}
     >
       <div

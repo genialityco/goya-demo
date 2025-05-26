@@ -70,22 +70,29 @@ export function useSinglePlayerGame() {
   // Mantener última referencia de balls y activar nuevas balls conforme desaparecen
   useEffect(() => {
     latestBallsRef.current = balls;
-    // Activar nuevas balls si hay menos de 5 activas y quedan balls inactivas que nunca han sido activadas
+
+    // Determina el máximo de balls activas según el dispositivo
+    const maxActiveBalls = window.innerWidth <= 600 ? 2 : 5;
+
+    // Encuentra balls activas y balls que nunca han sido activadas
     const activeBalls = Object.values(balls).filter((b) => b.active);
-    // const inactiveBalls = Object.values(balls).filter((b) => !b.active);
-    // Buscar balls que nunca han sido activadas (tienen un flag extra)
     const neverActivated = Object.values(balls).filter((b: any) => !b.active && !b.wasActivated);
 
-    if (activeBalls.length < 5 && neverActivated.length > 0) {
-      // Activar las siguientes balls necesarias para llegar a 5 activas
-      const ballsToActivate = neverActivated.slice(0, 5 - activeBalls.length);
+    // Si hay menos de maxActiveBalls activas y quedan por activar, activa las siguientes
+    if (activeBalls.length < maxActiveBalls && neverActivated.length > 0) {
       const updatedBalls = { ...balls };
-      ballsToActivate.forEach((ball: any) => {
-        updatedBalls[ball.id] = { ...ball, active: true, wasActivated: true };
+      let toActivate = maxActiveBalls - activeBalls.length;
+      Object.values(balls).forEach((ball: any) => {
+        if (!ball.active && !ball.wasActivated && toActivate > 0) {
+          updatedBalls[ball.id] = { ...ball, active: true, wasActivated: true };
+          toActivate--;
+        }
       });
       setBalls(updatedBalls);
+      return; // Importante: salir para evitar evaluar el final del juego antes de activar nuevas
     }
 
+    // Solo marcar el juego como finalizado si ya no quedan balls por activar ni activas
     const allBallsInactive = Object.values(balls).every((b) => !b.active && b.wasActivated);
     setIsFinishGame(allBallsInactive);
   }, [balls]);
