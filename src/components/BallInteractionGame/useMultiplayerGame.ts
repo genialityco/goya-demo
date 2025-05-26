@@ -4,6 +4,8 @@ import { initCamera } from "../../services/Camera";
 import { loadPoseModel } from "../../services/loadPoseModel";
 import { startPoseDetection } from "../../services/startPoseDetection";
 
+export const TOTAL_BALLS = 30;
+
 export function useSinglePlayerGame() {
   const [nicknameLocal, setNicknameLocal] = useState("");
   const [isPreloading, setIsPreloading] = useState(true);
@@ -56,30 +58,50 @@ export function useSinglePlayerGame() {
 
     preloadModel();
 
-    const initialBalls = generateBalls(10).reduce((o, b) => {
-      o[b.id] = b;
+    // Generar 30 balls, pero solo activar las primeras 5
+    const allBallsArr = generateBalls(TOTAL_BALLS);
+    const initialBalls = allBallsArr.reduce((o, b, idx) => {
+      o[b.id] = { ...b, active: idx < 5 }; // solo los primeros 5 activos
       return o;
     }, {} as Record<string, any>);
     setBalls(initialBalls);
   }, []);
 
-  // Mantener última referencia de balls
+  // Mantener última referencia de balls y activar nuevas balls conforme desaparecen
   useEffect(() => {
     latestBallsRef.current = balls;
-    const allBallsInactive = Object.values(balls).every((b) => !b.active);
+    // Activar nuevas balls si hay menos de 5 activas y quedan balls inactivas que nunca han sido activadas
+    const activeBalls = Object.values(balls).filter((b) => b.active);
+    // const inactiveBalls = Object.values(balls).filter((b) => !b.active);
+    // Buscar balls que nunca han sido activadas (tienen un flag extra)
+    const neverActivated = Object.values(balls).filter((b: any) => !b.active && !b.wasActivated);
+
+    if (activeBalls.length < 5 && neverActivated.length > 0) {
+      // Activar las siguientes balls necesarias para llegar a 5 activas
+      const ballsToActivate = neverActivated.slice(0, 5 - activeBalls.length);
+      const updatedBalls = { ...balls };
+      ballsToActivate.forEach((ball: any) => {
+        updatedBalls[ball.id] = { ...ball, active: true, wasActivated: true };
+      });
+      setBalls(updatedBalls);
+    }
+
+    const allBallsInactive = Object.values(balls).every((b) => !b.active && b.wasActivated);
     setIsFinishGame(allBallsInactive);
   }, [balls]);
 
-  // Cambiar aleatoriamente la imagen de cada empaque cada 3 segundos
+  // Cambiar aleatoriamente la imagen de cada empaque cada 3 segundos SOLO de balls activas
   useEffect(() => {
     const interval = setInterval(() => {
       setBalls((prev) => {
         const next: any = { ...prev };
         Object.keys(next).forEach((key) => {
-          next[key] = {
-            ...next[key],
-            imageKey: `EMPAQUE_0${Math.floor(Math.random() * 5) + 1}`,
-          };
+          if (next[key].active) {
+            next[key] = {
+              ...next[key],
+              imageKey: `EMPAQUE_0${Math.floor(Math.random() * 5) + 1}`,
+            };
+          }
         });
         return next;
       });
@@ -156,7 +178,8 @@ export function useSinglePlayerGame() {
         const distanceSquared = dx * dx + dy * dy;
 
         if (distanceSquared < radius * radius) {
-          ball.active = false;
+          // Marcar como inactivo y que ya fue activado
+          currentBalls[ball.id] = { ...ball, active: false, wasActivated: true };
           setBalls({ ...currentBalls });
           setScore((prev) => prev + 100);
           showExplosion(centerX, centerY);
@@ -240,7 +263,6 @@ export function useSinglePlayerGame() {
   function generateBalls(count: number) {
     const balls: any[] = [];
     const xMin = 0.05, xMax = 0.8, yMin = 0.05, yMax = 0.6;
-    console.log(count);
     for (let i = 0; i < count; i++) {
       let valid = false, attempts = 0;
       const ball = {
@@ -248,7 +270,8 @@ export function useSinglePlayerGame() {
         relativeX: 0,
         relativeY: 0,
         radius: 40,
-        active: true,
+        active: false, // por defecto inactivo
+        wasActivated: false, // flag para saber si ya fue activado alguna vez
         imageKey: `EMPAQUE_0${Math.floor(Math.random() * 5) + 1}`,
       };
 

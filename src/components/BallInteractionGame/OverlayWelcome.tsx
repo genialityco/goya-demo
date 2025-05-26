@@ -4,7 +4,6 @@ interface OverlayWelcomeProps {
   isPreloading: boolean;
   isStarted: boolean;
   isFinishGame: boolean;
-  userStartLocalGame: boolean;
 
   startGame: () => void;
   restartGame: () => void;
@@ -21,7 +20,6 @@ export const OverlayWelcome: React.FC<OverlayWelcomeProps> = ({
   restartGame,
   nicknameLocal,
   setNicknameLocal,
-  userStartLocalGame,
 }) => {
   const isMobile = window.innerWidth <= 768;
 
@@ -29,7 +27,8 @@ export const OverlayWelcome: React.FC<OverlayWelcomeProps> = ({
     ? "/goya/MOBILE/GOYA_HOME_MOBILE.png"
     : "/goya/DESKTOP/FONDO_GOYA_HOME.png";
 
-  if (isStarted && !isFinishGame && userStartLocalGame) return null;
+  // Oculta el overlay una vez que el juego ha arrancado y no está finalizado
+  if (isStarted && !isFinishGame) return null;
 
   return (
     <div
@@ -62,9 +61,10 @@ export const OverlayWelcome: React.FC<OverlayWelcomeProps> = ({
             onClick={restartGame}
             className="restart-button"
             src="/goya/BOTON_RESTART.png"
+            alt="Reiniciar juego"
           />
         </>
-      ) : !isStarted ? (
+      ) : (
         <>
           <h2>Ingresa tu nombre</h2>
           <input
@@ -89,17 +89,18 @@ export const OverlayWelcome: React.FC<OverlayWelcomeProps> = ({
               textAlign: "center",
             }}
           >
-            <strong>Instrucciones:</strong> Usa tus manos frente a la cámara
-            para explotar globos en pantalla. Ganas puntos por cada globo que toques.
+            <strong>Instrucciones:</strong> Usa tus manos frente a la cámara para
+            explotar empaques en pantalla. Ganas puntos por cada empaque que toques.
           </p>
           <img
             style={{ width: "250px", height: "80px", cursor: "pointer" }}
             onClick={startGame}
             className="restart-button"
             src="/goya/DESKTOP/BOTON.png"
+            alt="Comenzar juego"
           />
         </>
-      ) : null}
+      )}
     </div>
   );
 };
